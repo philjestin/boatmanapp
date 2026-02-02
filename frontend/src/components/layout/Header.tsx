@@ -1,0 +1,51 @@
+import { Menu, Settings, Plus, FolderOpen } from 'lucide-react';
+import { useStore } from '../../store';
+
+interface HeaderProps {
+  onNewSession: () => void;
+  onOpenProject: () => void;
+  onOpenSettings: () => void;
+}
+
+export function Header({ onNewSession, onOpenProject, onOpenSettings }: HeaderProps) {
+  const { toggleSidebar, sidebarOpen } = useStore();
+
+  return (
+    <header className="h-12 bg-dark-900/80 backdrop-blur-sm border-b border-dark-700 flex items-center justify-between px-4 drag-region">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={toggleSidebar}
+          className="p-1.5 rounded-md hover:bg-dark-700 transition-colors no-drag"
+          aria-label="Toggle sidebar"
+        >
+          <Menu className="w-5 h-5 text-dark-300" />
+        </button>
+        <h1 className="text-sm font-medium text-dark-100">Boatman</h1>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onOpenProject}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-dark-200 hover:text-dark-100 hover:bg-dark-700 rounded-md transition-colors no-drag"
+        >
+          <FolderOpen className="w-4 h-4" />
+          <span>Open</span>
+        </button>
+        <button
+          onClick={onNewSession}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent-primary text-white rounded-md hover:bg-blue-600 transition-colors no-drag"
+        >
+          <Plus className="w-4 h-4" />
+          <span>New Session</span>
+        </button>
+        <button
+          onClick={onOpenSettings}
+          className="p-1.5 rounded-md hover:bg-dark-700 transition-colors no-drag"
+          aria-label="Settings"
+        >
+          <Settings className="w-5 h-5 text-dark-300" />
+        </button>
+      </div>
+    </header>
+  );
+}

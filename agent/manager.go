@@ -1,0 +1,195 @@
+package agent
+
+import (
+	"context"
+	"fmt"
+	"sync"
+
+	"github.com/google/uuid"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+)
+
+// Manager handles multiple agent sessions
+type Manager struct {
+	ctx          context.Context
+	sessions     map[string]*Session
+	mu           sync.RWMutex
+	defaultModel string
+}
+
+// NewManager creates a new agent manager
+func NewManager() *Manager {
+	return &Manager{
+		sessions:     make(map[string]*Session),
+		defaultModel: "claude-sonnet-4-20250514",
+	}
+}
+
+// SetContext sets the Wails runtime context
+func (m *Manager) SetContext(ctx context.Context) {
+	m.ctx = ctx
+}
+
+// SetDefaultModel sets the default model for new sessions
+func (m *Manager) SetDefaultModel(model string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.defaultModel = model
+}
+
+// CreateSession creates a new agent session for a project
+func (m *Manager) CreateSession(projectPath string) (*Session, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	sessionID := uuid.New().String()
+	session := NewSession(sessionID, projectPath)
+
+	// Set up event handlers to emit to frontend
+	session.SetMessageHandler(func(msg Message) {
+		if m.ctx != nil {
+			runtime.EventsEmit(m.ctx, "agent:message", map[string]interface{}{
+				"sessionId": sessionID,
+				"message":   msg,
+			})
+		}
+	})
+
+	session.SetTaskHandler(func(task Task) {
+		if m.ctx != nil {
+			runtime.EventsEmit(m.ctx, "agent:task", map[string]interface{}{
+				"sessionId": sessionID,
+				"task":      task,
+			})
+		}
+	})
+
+	session.SetStatusHandler(func(status SessionStatus) {
+		if m.ctx != nil {
+			runtime.EventsEmit(m.ctx, "agent:status", map[string]interface{}{
+				"sessionId": sessionID,
+				"status":    status,
+			})
+		}
+	})
+
+	m.sessions[sessionID] = session
+	return session, nil
+}
+
+// GetSession returns a session by ID
+func (m *Manager) GetSession(sessionID string) (*Session, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	session, ok := m.sessions[sessionID]
+	if !ok {
+		return nil, fmt.Errorf("session not found: %s", sessionID)
+	}
+	return session, nil
+}
+
+// ListSessions returns all active sessions
+func (m *Manager) ListSessions() []*Session {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	sessions := make([]*Session, 0, len(m.sessions))
+	for _, s := range m.sessions {
+		sessions = append(sessions, s)
+	}
+	return sessions
+}
+
+// StartSession starts an agent session
+func (m *Manager) StartSession(sessionID string) error {
+	session, err := m.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+
+	m.mu.RLock()
+	model := m.defaultModel
+	m.mu.RUnlock()
+
+	return session.Start(model)
+}
+
+// StopSession stops an agent session
+func (m *Manager) StopSession(sessionID string) error {
+	session, err := m.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	return session.Stop()
+}
+
+// DeleteSession removes a session
+func (m *Manager) DeleteSession(sessionID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	session, ok := m.sessions[sessionID]
+	if !ok {
+		return fmt.Errorf("session not found: %s", sessionID)
+	}
+
+	session.Stop()
+	delete(m.sessions, sessionID)
+	return nil
+}
+
+// SendMessage sends a message to a session
+func (m *Manager) SendMessage(sessionID, content string) error {
+	session, err := m.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	return session.SendMessage(content)
+}
+
+// ApproveAction approves a pending action
+func (m *Manager) ApproveAction(sessionID, actionID string) error {
+	session, err := m.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	return session.Approve(actionID)
+}
+
+// RejectAction rejects a pending action
+func (m *Manager) RejectAction(sessionID, actionID string) error {
+	session, err := m.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	return session.Reject(actionID)
+}
+
+// GetSessionMessages returns messages for a session
+func (m *Manager) GetSessionMessages(sessionID string) ([]Message, error) {
+	session, err := m.GetSession(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	return session.GetMessages(), nil
+}
+
+// GetSessionTasks returns tasks for a session
+func (m *Manager) GetSessionTasks(sessionID string) ([]Task, error) {
+	session, err := m.GetSession(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	return session.GetTasks(), nil
+}
+
+// StopAllSessions stops all running sessions
+func (m *Manager) StopAllSessions() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, session := range m.sessions {
+		session.Stop()
+	}
+}
