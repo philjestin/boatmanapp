@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useStore } from '../store';
 import type { UserPreferences } from '../types';
 
@@ -19,10 +19,19 @@ export function usePreferences() {
     setOnboardingOpen,
   } = useStore();
 
+  const [isLoading, setIsLoading] = useState(true);
+
   // Load preferences on mount
   useEffect(() => {
     const loadPreferences = async () => {
       try {
+        // Check if Wails bindings are available
+        if (typeof GetPreferences !== 'function') {
+          console.warn('Wails bindings not available yet');
+          setIsLoading(false);
+          return;
+        }
+
         const prefs = await GetPreferences();
         setPreferences(prefs as unknown as UserPreferences);
 
@@ -33,6 +42,8 @@ export function usePreferences() {
         }
       } catch (err) {
         console.error('Failed to load preferences:', err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -64,6 +75,7 @@ export function usePreferences() {
   return {
     preferences,
     onboardingOpen,
+    isLoading,
     savePreferences,
     updatePreferences,
     completeOnboardingFlow,

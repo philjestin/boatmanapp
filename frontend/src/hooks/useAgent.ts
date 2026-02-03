@@ -62,6 +62,12 @@ export function useAgent() {
   useEffect(() => {
     const loadSessions = async () => {
       try {
+        // Check if Wails bindings are available
+        if (typeof ListAgentSessions !== 'function') {
+          console.warn('Wails bindings not available yet');
+          return;
+        }
+
         setLoading('sessions', true);
         const sessionInfos = await ListAgentSessions();
         // Convert to full sessions (messages/tasks will be loaded on select)
@@ -76,6 +82,7 @@ export function useAgent() {
           });
         });
       } catch (err) {
+        console.error('Failed to load sessions:', err);
         setError('Failed to load sessions');
       } finally {
         setLoading('sessions', false);

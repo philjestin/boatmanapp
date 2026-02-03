@@ -51,12 +51,19 @@ function App() {
     completeOnboardingFlow,
   } = usePreferences();
 
+  // Dismiss error after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, setError]);
+
   // Handle new session creation
   const handleNewSession = async () => {
     if (activeProject) {
       await createSession(activeProject.path);
     } else {
-      // Open project first, then create session
       const project = await selectAndOpenProject();
       if (project) {
         await createSession(project.path);
@@ -90,19 +97,11 @@ function App() {
     }
   };
 
-  // Dismiss error after 5 seconds
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error, setError]);
-
   const isWaitingForApproval = activeSession?.status === 'waiting';
   const hasActiveSession = activeSession !== null;
 
   return (
-    <div className="h-screen flex flex-col bg-dark-950 text-dark-100">
+    <div className="h-screen flex flex-col bg-slate-900 text-slate-100">
       {/* Onboarding */}
       <OnboardingWizard
         isOpen={onboardingOpen}
@@ -121,7 +120,7 @@ function App() {
 
       {/* Error Toast */}
       {error && (
-        <div className="fixed top-4 right-4 z-50 bg-accent-danger text-white px-4 py-2 rounded-lg shadow-lg">
+        <div className="fixed top-4 right-4 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg">
           {error}
         </div>
       )}
@@ -156,13 +155,13 @@ function App() {
           {hasActiveSession && (
             <>
               {/* Tab Navigation */}
-              <div className="flex items-center border-b border-dark-700 bg-dark-900">
+              <div className="flex items-center border-b border-slate-700 bg-slate-800">
                 <button
                   onClick={() => setActiveTab('chat')}
                   className={`flex items-center gap-2 px-4 py-3 text-sm transition-colors border-b-2 ${
                     activeTab === 'chat'
-                      ? 'border-accent-primary text-dark-100'
-                      : 'border-transparent text-dark-400 hover:text-dark-200'
+                      ? 'border-blue-500 text-slate-100'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   <MessageSquare className="w-4 h-4" />
@@ -172,14 +171,14 @@ function App() {
                   onClick={() => setActiveTab('tasks')}
                   className={`flex items-center gap-2 px-4 py-3 text-sm transition-colors border-b-2 ${
                     activeTab === 'tasks'
-                      ? 'border-accent-primary text-dark-100'
-                      : 'border-transparent text-dark-400 hover:text-dark-200'
+                      ? 'border-blue-500 text-slate-100'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   <ListTodo className="w-4 h-4" />
                   Tasks
                   {activeSession.tasks.length > 0 && (
-                    <span className="px-1.5 py-0.5 text-xs bg-dark-700 rounded-full">
+                    <span className="px-1.5 py-0.5 text-xs bg-slate-700 rounded-full">
                       {activeSession.tasks.length}
                     </span>
                   )}
