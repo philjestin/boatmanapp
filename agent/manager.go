@@ -15,6 +15,7 @@ type Manager struct {
 	sessions     map[string]*Session
 	mu           sync.RWMutex
 	defaultModel string
+	apiKeyGetter func() string
 }
 
 // NewManager creates a new agent manager
@@ -35,6 +36,13 @@ func (m *Manager) SetDefaultModel(model string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.defaultModel = model
+}
+
+// SetAPIKeyGetter sets the function to retrieve the API key
+func (m *Manager) SetAPIKeyGetter(getter func() string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.apiKeyGetter = getter
 }
 
 // CreateSession creates a new agent session for a project
@@ -145,7 +153,16 @@ func (m *Manager) SendMessage(sessionID, content string) error {
 	if err != nil {
 		return err
 	}
-	return session.SendMessage(content)
+
+	// Get API key
+	var apiKey string
+	m.mu.RLock()
+	if m.apiKeyGetter != nil {
+		apiKey = m.apiKeyGetter()
+	}
+	m.mu.RUnlock()
+
+	return session.SendMessage(content, apiKey)
 }
 
 // ApproveAction approves a pending action

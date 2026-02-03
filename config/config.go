@@ -35,6 +35,7 @@ type MCPServer struct {
 
 // UserPreferences stores user configuration
 type UserPreferences struct {
+	APIKey               string       `json:"apiKey"`
 	ApprovalMode         ApprovalMode `json:"approvalMode"`
 	DefaultModel         string       `json:"defaultModel"`
 	Theme                Theme        `json:"theme"`
@@ -181,6 +182,13 @@ func (c *Config) CompleteOnboarding() error {
 	c.preferences.OnboardingCompleted = true
 	c.mu.Unlock()
 	return c.Save()
+}
+
+// GetAPIKey returns the configured API key
+func (c *Config) GetAPIKey() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.preferences.APIKey
 }
 
 // GetMCPServers returns configured MCP servers

@@ -36,11 +36,11 @@ export function InputArea({ onSend, disabled = false, placeholder = 'Type a mess
   };
 
   return (
-    <div className="border-t border-dark-700 bg-dark-900 p-4">
+    <div className="border-t border-slate-700 bg-slate-800 p-4">
       <div className="max-w-4xl mx-auto">
-        <div className="relative flex items-end gap-2 bg-dark-800 rounded-lg border border-dark-600 focus-within:border-accent-primary transition-colors">
+        <div className="relative flex items-end gap-2 bg-slate-900 rounded-lg border border-slate-600 focus-within:border-blue-500 transition-colors">
           <button
-            className="flex-shrink-0 p-3 text-dark-400 hover:text-dark-200 transition-colors"
+            className="flex-shrink-0 p-3 text-slate-400 hover:text-slate-200 transition-colors"
             aria-label="Attach file"
           >
             <Paperclip className="w-5 h-5" />
@@ -53,15 +53,15 @@ export function InputArea({ onSend, disabled = false, placeholder = 'Type a mess
             placeholder={placeholder}
             disabled={disabled}
             rows={1}
-            className="flex-1 py-3 bg-transparent text-dark-100 placeholder-dark-500 resize-none focus:outline-none text-sm"
+            className="flex-1 py-3 bg-transparent text-slate-100 placeholder-slate-500 resize-none focus:outline-none text-sm"
           />
           <button
             onClick={handleSend}
             disabled={disabled || !message.trim()}
             className={`flex-shrink-0 p-3 transition-colors ${
               disabled || !message.trim()
-                ? 'text-dark-600 cursor-not-allowed'
-                : 'text-accent-primary hover:text-blue-400'
+                ? 'text-slate-600 cursor-not-allowed'
+                : 'text-blue-400 hover:text-blue-300'
             }`}
             aria-label="Send message"
           >
@@ -72,9 +72,9 @@ export function InputArea({ onSend, disabled = false, placeholder = 'Type a mess
             )}
           </button>
         </div>
-        <p className="mt-2 text-xs text-dark-500 text-center">
-          Press <kbd className="px-1.5 py-0.5 bg-dark-700 rounded text-dark-400">Enter</kbd> to send,{' '}
-          <kbd className="px-1.5 py-0.5 bg-dark-700 rounded text-dark-400">Shift+Enter</kbd> for new line
+        <p className="mt-2 text-xs text-slate-500 text-center">
+          Press <kbd className="px-1.5 py-0.5 bg-slate-700 rounded text-slate-400">Enter</kbd> to send,{' '}
+          <kbd className="px-1.5 py-0.5 bg-slate-700 rounded text-slate-400">Shift+Enter</kbd> for new line
         </p>
       </div>
     </div>

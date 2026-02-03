@@ -51,6 +51,7 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.agentManager.SetContext(ctx)
+	a.agentManager.SetAPIKeyGetter(a.config.GetAPIKey)
 }
 
 // shutdown is called when the app is closing

@@ -9,11 +9,11 @@ interface TaskItemProps {
 function getStatusIcon(status: Task['status']) {
   switch (status) {
     case 'completed':
-      return <CheckCircle2 className="w-4 h-4 text-accent-success" />;
+      return <CheckCircle2 className="w-4 h-4 text-green-500" />;
     case 'in_progress':
-      return <Loader2 className="w-4 h-4 text-accent-primary animate-spin" />;
+      return <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />;
     default:
-      return <Circle className="w-4 h-4 text-dark-500" />;
+      return <Circle className="w-4 h-4 text-slate-500" />;
   }
 }
 
@@ -31,11 +31,11 @@ function getStatusLabel(status: Task['status']) {
 function getStatusStyles(status: Task['status']) {
   switch (status) {
     case 'completed':
-      return 'bg-accent-success/10 text-accent-success';
+      return 'bg-green-500/10 text-green-500';
     case 'in_progress':
-      return 'bg-accent-primary/10 text-accent-primary';
+      return 'bg-blue-500/10 text-blue-500';
     default:
-      return 'bg-dark-700 text-dark-400';
+      return 'bg-slate-700 text-slate-400';
   }
 }
 
@@ -44,11 +44,11 @@ export function TaskItem({ task, onClick }: TaskItemProps) {
     <div
       onClick={onClick}
       className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
-        onClick ? 'cursor-pointer hover:bg-dark-800' : ''
+        onClick ? 'cursor-pointer hover:bg-slate-800' : ''
       } ${
         task.status === 'completed'
-          ? 'border-dark-800 bg-dark-900/50'
-          : 'border-dark-700 bg-dark-800'
+          ? 'border-slate-800 bg-slate-900/50'
+          : 'border-slate-700 bg-slate-800'
       }`}
     >
       <div className="flex-shrink-0 mt-0.5">{getStatusIcon(task.status)}</div>
@@ -56,7 +56,7 @@ export function TaskItem({ task, onClick }: TaskItemProps) {
         <div className="flex items-start justify-between gap-2">
           <h4
             className={`text-sm font-medium ${
-              task.status === 'completed' ? 'text-dark-400 line-through' : 'text-dark-100'
+              task.status === 'completed' ? 'text-slate-400 line-through' : 'text-slate-100'
             }`}
           >
             {task.subject}
@@ -70,11 +70,11 @@ export function TaskItem({ task, onClick }: TaskItemProps) {
           </span>
         </div>
         {task.description && (
-          <p className="mt-1 text-xs text-dark-400 line-clamp-2">{task.description}</p>
+          <p className="mt-1 text-xs text-slate-400 line-clamp-2">{task.description}</p>
         )}
       </div>
       {onClick && (
-        <ChevronRight className="flex-shrink-0 w-4 h-4 text-dark-500 mt-0.5" />
+        <ChevronRight className="flex-shrink-0 w-4 h-4 text-slate-500 mt-0.5" />
       )}
     </div>
   );

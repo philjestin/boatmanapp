@@ -29,29 +29,29 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
   const getBubbleStyles = () => {
     if (isUser) {
-      return 'bg-accent-primary/10 border-accent-primary/20';
+      return 'bg-blue-500/10 border-blue-500/20';
     }
     if (isSystem || isToolResult) {
-      return 'bg-dark-800/50 border-dark-700';
+      return 'bg-slate-800/50 border-slate-700';
     }
-    return 'bg-dark-800 border-dark-700';
+    return 'bg-slate-800 border-slate-700';
   };
 
   const getHeaderStyles = () => {
-    if (isUser) return 'text-accent-primary';
-    if (isToolUse) return 'text-accent-warning';
-    if (isToolResult) return 'text-dark-400';
-    return 'text-accent-secondary';
+    if (isUser) return 'text-blue-400';
+    if (isToolUse) return 'text-amber-400';
+    if (isToolResult) return 'text-slate-400';
+    return 'text-purple-400';
   };
 
   return (
     <div className={`flex gap-3 px-4 py-3 ${isUser ? 'flex-row-reverse' : ''}`}>
       <div
         className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
-          isUser ? 'bg-accent-primary/20' : 'bg-dark-700'
+          isUser ? 'bg-blue-500/20' : 'bg-slate-700'
         }`}
       >
-        <span className={isUser ? 'text-accent-primary' : 'text-dark-300'}>
+        <span className={isUser ? 'text-blue-400' : 'text-slate-300'}>
           {getIcon()}
         </span>
       </div>
@@ -60,7 +60,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           <span className={`text-xs font-medium ${getHeaderStyles()}`}>
             {isUser ? 'You' : isToolUse ? `Tool: ${message.metadata?.toolUse?.toolName}` : 'Claude'}
           </span>
-          <span className="text-xs text-dark-500">
+          <span className="text-xs text-slate-500">
             {new Date(message.timestamp).toLocaleTimeString()}
           </span>
         </div>
@@ -69,13 +69,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         >
           {isToolUse ? (
             <div className="text-sm">
-              <p className="text-dark-300">{message.content}</p>
+              <p className="text-slate-300">{message.content}</p>
               {message.metadata?.toolUse?.input ? (
                 <details className="mt-2">
-                  <summary className="text-xs text-dark-500 cursor-pointer hover:text-dark-400">
+                  <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400">
                     View input
                   </summary>
-                  <pre className="mt-2 text-xs bg-dark-900 p-2 rounded overflow-x-auto">
+                  <pre className="mt-2 text-xs bg-slate-900 p-2 rounded overflow-x-auto">
                     {JSON.stringify(message.metadata.toolUse.input, null, 2)}
                   </pre>
                 </details>
@@ -93,7 +93,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                     if (isInline) {
                       return (
                         <code
-                          className="px-1.5 py-0.5 bg-dark-700 rounded text-accent-primary text-sm"
+                          className="px-1.5 py-0.5 bg-slate-700 rounded text-blue-400 text-sm"
                           {...props}
                         >
                           {children}
@@ -109,18 +109,18 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                     );
                   },
                   p: ({ children }) => (
-                    <p className="text-dark-200 mb-2 last:mb-0">{children}</p>
+                    <p className="text-slate-200 mb-2 last:mb-0">{children}</p>
                   ),
                   ul: ({ children }) => (
-                    <ul className="list-disc list-inside text-dark-200 mb-2">{children}</ul>
+                    <ul className="list-disc list-inside text-slate-200 mb-2">{children}</ul>
                   ),
                   ol: ({ children }) => (
-                    <ol className="list-decimal list-inside text-dark-200 mb-2">{children}</ol>
+                    <ol className="list-decimal list-inside text-slate-200 mb-2">{children}</ol>
                   ),
                   a: ({ children, href }) => (
                     <a
                       href={href}
-                      className="text-accent-primary hover:underline"
+                      className="text-blue-400 hover:underline"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -128,7 +128,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                     </a>
                   ),
                   blockquote: ({ children }) => (
-                    <blockquote className="border-l-2 border-dark-600 pl-3 italic text-dark-400">
+                    <blockquote className="border-l-2 border-slate-600 pl-3 italic text-slate-400">
                       {children}
                     </blockquote>
                   ),

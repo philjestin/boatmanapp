@@ -20,9 +20,9 @@ export function TaskList({ tasks, onTaskClick }: TaskListProps) {
   if (tasks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center">
-        <ClipboardList className="w-12 h-12 text-dark-600 mb-3" />
-        <h3 className="text-sm font-medium text-dark-300 mb-1">No tasks yet</h3>
-        <p className="text-xs text-dark-500">
+        <ClipboardList className="w-12 h-12 text-slate-600 mb-3" />
+        <h3 className="text-sm font-medium text-slate-300 mb-1">No tasks yet</h3>
+        <p className="text-xs text-slate-500">
           Tasks will appear here as the agent works
         </p>
       </div>
@@ -34,14 +34,14 @@ export function TaskList({ tasks, onTaskClick }: TaskListProps) {
       {/* Progress bar */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-dark-400">Progress</span>
-          <span className="text-dark-300">
+          <span className="text-slate-400">Progress</span>
+          <span className="text-slate-300">
             {completedTasks.length} / {tasks.length} completed
           </span>
         </div>
-        <div className="h-2 bg-dark-800 rounded-full overflow-hidden">
+        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
           <div
-            className="h-full bg-accent-success transition-all duration-300"
+            className="h-full bg-green-500 transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -50,7 +50,7 @@ export function TaskList({ tasks, onTaskClick }: TaskListProps) {
       {/* In Progress */}
       {inProgressTasks.length > 0 && (
         <div>
-          <h3 className="text-xs font-medium text-dark-400 uppercase tracking-wider mb-2">
+          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
             In Progress ({inProgressTasks.length})
           </h3>
           <div className="space-y-2">
@@ -68,7 +68,7 @@ export function TaskList({ tasks, onTaskClick }: TaskListProps) {
       {/* Pending */}
       {pendingTasks.length > 0 && (
         <div>
-          <h3 className="text-xs font-medium text-dark-400 uppercase tracking-wider mb-2">
+          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
             Pending ({pendingTasks.length})
           </h3>
           <div className="space-y-2">
@@ -86,7 +86,7 @@ export function TaskList({ tasks, onTaskClick }: TaskListProps) {
       {/* Completed */}
       {completedTasks.length > 0 && (
         <div>
-          <h3 className="text-xs font-medium text-dark-400 uppercase tracking-wider mb-2">
+          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
             Completed ({completedTasks.length})
           </h3>
           <div className="space-y-2">

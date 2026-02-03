@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Moon, Sun, Bell, BellOff, Shield, Zap, Bot, Server } from 'lucide-react';
+import { X, Moon, Sun, Bell, BellOff, Shield, Zap, Bot, Server, Key, Eye, EyeOff } from 'lucide-react';
 import type { UserPreferences, ApprovalMode, Theme, MCPServer } from '../../types';
 
 interface SettingsModalProps {
@@ -35,13 +35,13 @@ export function SettingsModal({ isOpen, onClose, preferences, onSave }: Settings
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-dark-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden border border-dark-700">
+      <div className="relative bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden border border-slate-700">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-dark-700">
-          <h2 className="text-lg font-semibold text-dark-100">Settings</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+          <h2 className="text-lg font-semibold text-slate-100">Settings</h2>
           <button
             onClick={onClose}
-            className="p-1 text-dark-400 hover:text-dark-200 transition-colors"
+            className="p-1 text-slate-400 hover:text-slate-200 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -49,15 +49,15 @@ export function SettingsModal({ isOpen, onClose, preferences, onSave }: Settings
 
         <div className="flex h-[60vh]">
           {/* Sidebar */}
-          <div className="w-48 border-r border-dark-700 py-4">
+          <div className="w-48 border-r border-slate-700 py-4">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors ${
                   activeTab === tab.id
-                    ? 'bg-dark-800 text-dark-100 border-r-2 border-accent-primary'
-                    : 'text-dark-400 hover:text-dark-200 hover:bg-dark-800/50'
+                    ? 'bg-slate-800 text-slate-100 border-r-2 border-blue-500'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                 }`}
               >
                 {tab.icon}
@@ -93,16 +93,16 @@ export function SettingsModal({ isOpen, onClose, preferences, onSave }: Settings
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-dark-700">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-700">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-dark-300 hover:text-dark-100 transition-colors"
+            className="px-4 py-2 text-sm text-slate-300 hover:text-slate-100 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 text-sm bg-accent-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
+            className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
           >
             Save Changes
           </button>
@@ -120,17 +120,49 @@ function GeneralSettings({
   preferences: UserPreferences;
   onChange: (prefs: UserPreferences) => void;
 }) {
+  const [showApiKey, setShowApiKey] = useState(false);
+
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-medium text-dark-100 mb-4">Appearance</h3>
+        <h3 className="text-sm font-medium text-slate-100 mb-2">API Key</h3>
+        <p className="text-xs text-slate-400 mb-3">
+          Your Anthropic API key for Claude access
+        </p>
+        <div className="relative">
+          <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <input
+            type={showApiKey ? 'text' : 'password'}
+            value={preferences.apiKey || ''}
+            onChange={(e) => onChange({ ...preferences, apiKey: e.target.value })}
+            placeholder="sk-ant-..."
+            className="w-full pl-10 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+          />
+          <button
+            type="button"
+            onClick={() => setShowApiKey(!showApiKey)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+          >
+            {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+        <p className="text-xs text-slate-500 mt-2">
+          Get your API key from{' '}
+          <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+            console.anthropic.com
+          </a>
+        </p>
+      </div>
+
+      <div>
+        <h3 className="text-sm font-medium text-slate-100 mb-4">Appearance</h3>
         <div className="flex items-center gap-3">
           <button
             onClick={() => onChange({ ...preferences, theme: 'dark' })}
             className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border transition-colors ${
               preferences.theme === 'dark'
-                ? 'border-accent-primary bg-accent-primary/10'
-                : 'border-dark-700 hover:border-dark-600'
+                ? 'border-blue-500 bg-blue-500/10'
+                : 'border-slate-700 hover:border-slate-600'
             }`}
           >
             <Moon className="w-5 h-5" />
@@ -140,8 +172,8 @@ function GeneralSettings({
             onClick={() => onChange({ ...preferences, theme: 'light' })}
             className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border transition-colors ${
               preferences.theme === 'light'
-                ? 'border-accent-primary bg-accent-primary/10'
-                : 'border-dark-700 hover:border-dark-600'
+                ? 'border-blue-500 bg-blue-500/10'
+                : 'border-slate-700 hover:border-slate-600'
             }`}
           >
             <Sun className="w-5 h-5" />
@@ -151,17 +183,17 @@ function GeneralSettings({
       </div>
 
       <div>
-        <h3 className="text-sm font-medium text-dark-100 mb-4">Notifications</h3>
-        <label className="flex items-center justify-between p-4 rounded-lg border border-dark-700 cursor-pointer hover:bg-dark-800 transition-colors">
+        <h3 className="text-sm font-medium text-slate-100 mb-4">Notifications</h3>
+        <label className="flex items-center justify-between p-4 rounded-lg border border-slate-700 cursor-pointer hover:bg-slate-800 transition-colors">
           <div className="flex items-center gap-3">
             {preferences.notificationsEnabled ? (
-              <Bell className="w-5 h-5 text-accent-primary" />
+              <Bell className="w-5 h-5 text-blue-500" />
             ) : (
-              <BellOff className="w-5 h-5 text-dark-500" />
+              <BellOff className="w-5 h-5 text-slate-500" />
             )}
             <div>
-              <p className="text-sm text-dark-100">Desktop Notifications</p>
-              <p className="text-xs text-dark-400">
+              <p className="text-sm text-slate-100">Desktop Notifications</p>
+              <p className="text-xs text-slate-400">
                 Get notified when tasks complete
               </p>
             </div>
@@ -178,13 +210,13 @@ function GeneralSettings({
       </div>
 
       <div>
-        <h3 className="text-sm font-medium text-dark-100 mb-4">Default Model</h3>
+        <h3 className="text-sm font-medium text-slate-100 mb-4">Default Model</h3>
         <select
           value={preferences.defaultModel}
           onChange={(e) =>
             onChange({ ...preferences, defaultModel: e.target.value })
           }
-          className="w-full px-4 py-2 bg-dark-800 border border-dark-700 rounded-lg text-sm text-dark-100 focus:outline-none focus:border-accent-primary"
+          className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-blue-500"
         >
           <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
           <option value="claude-opus-4-20250514">Claude Opus 4</option>
@@ -227,8 +259,8 @@ function ApprovalSettings({
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-medium text-dark-100 mb-2">Approval Mode</h3>
-        <p className="text-xs text-dark-400 mb-4">
+        <h3 className="text-sm font-medium text-slate-100 mb-2">Approval Mode</h3>
+        <p className="text-xs text-slate-400 mb-4">
           Control how much autonomy Claude has when making changes
         </p>
         <div className="space-y-3">
@@ -237,8 +269,8 @@ function ApprovalSettings({
               key={mode.value}
               className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${
                 preferences.approvalMode === mode.value
-                  ? 'border-accent-primary bg-accent-primary/10'
-                  : 'border-dark-700 hover:border-dark-600'
+                  ? 'border-blue-500 bg-blue-500/10'
+                  : 'border-slate-700 hover:border-slate-600'
               }`}
             >
               <input
@@ -254,11 +286,11 @@ function ApprovalSettings({
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   {mode.icon}
-                  <span className="text-sm font-medium text-dark-100">
+                  <span className="text-sm font-medium text-slate-100">
                     {mode.label}
                   </span>
                 </div>
-                <p className="text-xs text-dark-400 mt-1">{mode.description}</p>
+                <p className="text-xs text-slate-400 mt-1">{mode.description}</p>
               </div>
             </label>
           ))}
@@ -266,8 +298,8 @@ function ApprovalSettings({
       </div>
 
       {preferences.approvalMode === 'full-auto' && (
-        <div className="p-4 bg-accent-warning/10 border border-accent-warning/20 rounded-lg">
-          <p className="text-sm text-accent-warning">
+        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+          <p className="text-sm text-amber-500">
             Warning: Full auto mode gives Claude complete control over your
             system. Use this only in trusted environments.
           </p>
@@ -288,16 +320,16 @@ function MCPSettings({
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-medium text-dark-100 mb-2">MCP Servers</h3>
-        <p className="text-xs text-dark-400 mb-4">
+        <h3 className="text-sm font-medium text-slate-100 mb-2">MCP Servers</h3>
+        <p className="text-xs text-slate-400 mb-4">
           Configure Model Context Protocol servers for extended capabilities
         </p>
 
         {servers.length === 0 ? (
-          <div className="text-center py-8 border border-dashed border-dark-700 rounded-lg">
-            <Server className="w-8 h-8 text-dark-600 mx-auto mb-2" />
-            <p className="text-sm text-dark-400">No MCP servers configured</p>
-            <button className="mt-3 text-sm text-accent-primary hover:underline">
+          <div className="text-center py-8 border border-dashed border-slate-700 rounded-lg">
+            <Server className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+            <p className="text-sm text-slate-400">No MCP servers configured</p>
+            <button className="mt-3 text-sm text-blue-500 hover:underline">
               Add Server
             </button>
           </div>
@@ -306,17 +338,17 @@ function MCPSettings({
             {servers.map((server, index) => (
               <div
                 key={server.name}
-                className="flex items-center justify-between p-4 rounded-lg border border-dark-700"
+                className="flex items-center justify-between p-4 rounded-lg border border-slate-700"
               >
                 <div className="flex items-center gap-3">
-                  <Server className="w-5 h-5 text-dark-400" />
+                  <Server className="w-5 h-5 text-slate-400" />
                   <div>
-                    <p className="text-sm text-dark-100">{server.name}</p>
-                    <p className="text-xs text-dark-500">{server.command}</p>
+                    <p className="text-sm text-slate-100">{server.name}</p>
+                    <p className="text-xs text-slate-500">{server.command}</p>
                   </div>
                 </div>
                 <label className="flex items-center gap-2">
-                  <span className="text-xs text-dark-400">
+                  <span className="text-xs text-slate-400">
                     {server.enabled ? 'Enabled' : 'Disabled'}
                   </span>
                   <input
@@ -344,15 +376,15 @@ function AboutSettings() {
   return (
     <div className="space-y-6">
       <div className="text-center py-8">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-accent-primary/20 flex items-center justify-center">
-          <Bot className="w-8 h-8 text-accent-primary" />
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-blue-500/20 flex items-center justify-center">
+          <Bot className="w-8 h-8 text-blue-500" />
         </div>
-        <h3 className="text-lg font-semibold text-dark-100">Boatman</h3>
-        <p className="text-sm text-dark-400">Claude Code Desktop App</p>
-        <p className="text-xs text-dark-500 mt-2">Version 0.1.0</p>
+        <h3 className="text-lg font-semibold text-slate-100">Boatman</h3>
+        <p className="text-sm text-slate-400">Claude Code Desktop App</p>
+        <p className="text-xs text-slate-500 mt-2">Version 0.1.0</p>
       </div>
 
-      <div className="space-y-2 text-sm text-dark-400">
+      <div className="space-y-2 text-sm text-slate-400">
         <p>
           Built with Wails and React for a native desktop experience.
         </p>
@@ -361,12 +393,12 @@ function AboutSettings() {
         </p>
       </div>
 
-      <div className="pt-4 border-t border-dark-700">
+      <div className="pt-4 border-t border-slate-700">
         <a
           href="https://github.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-accent-primary hover:underline"
+          className="text-sm text-blue-500 hover:underline"
         >
           View on GitHub
         </a>

@@ -14,6 +14,7 @@ const STEPS: Step[] = ['welcome', 'approval', 'theme', 'notifications', 'complet
 export function OnboardingWizard({ isOpen, onComplete }: OnboardingWizardProps) {
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [preferences, setPreferences] = useState<UserPreferences>({
+    apiKey: '',
     approvalMode: 'suggest',
     defaultModel: 'claude-sonnet-4-20250514',
     theme: 'dark',
@@ -46,17 +47,17 @@ export function OnboardingWizard({ isOpen, onComplete }: OnboardingWizardProps) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-dark-950">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950">
       <div className="w-full max-w-xl p-8">
         {/* Progress bar */}
         <div className="mb-8">
-          <div className="h-1 bg-dark-800 rounded-full overflow-hidden">
+          <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
             <div
-              className="h-full bg-accent-primary transition-all duration-300"
+              className="h-full bg-blue-500 transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <div className="flex justify-between mt-2 text-xs text-dark-500">
+          <div className="flex justify-between mt-2 text-xs text-slate-500">
             <span>Step {currentIndex + 1} of {STEPS.length}</span>
             <span>{Math.round(progress)}% complete</span>
           </div>
@@ -107,18 +108,18 @@ export function OnboardingWizard({ isOpen, onComplete }: OnboardingWizardProps) 
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="text-center">
-      <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-accent-primary/20 flex items-center justify-center">
-        <Bot className="w-10 h-10 text-accent-primary" />
+      <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-blue-500/20 flex items-center justify-center">
+        <Bot className="w-10 h-10 text-blue-500" />
       </div>
-      <h1 className="text-2xl font-bold text-dark-100 mb-3">
+      <h1 className="text-2xl font-bold text-slate-100 mb-3">
         Welcome to Boatman
       </h1>
-      <p className="text-dark-400 mb-8 max-w-md mx-auto">
+      <p className="text-slate-400 mb-8 max-w-md mx-auto">
         Your desktop companion for Claude Code. Let's set up a few things to get you started.
       </p>
       <button
         onClick={onNext}
-        className="flex items-center gap-2 px-6 py-3 mx-auto bg-accent-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
+        className="flex items-center gap-2 px-6 py-3 mx-auto bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
       >
         Get Started
         <ChevronRight className="w-4 h-4" />
@@ -162,10 +163,10 @@ function ApprovalStep({
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-dark-100 mb-2">
+      <h2 className="text-xl font-bold text-slate-100 mb-2">
         Choose Your Approval Mode
       </h2>
-      <p className="text-dark-400 mb-6">
+      <p className="text-slate-400 mb-6">
         How much control should Claude have?
       </p>
 
@@ -176,32 +177,32 @@ function ApprovalStep({
             onClick={() => onChange(mode.value)}
             className={`w-full flex items-start gap-4 p-4 rounded-lg border text-left transition-colors ${
               value === mode.value
-                ? 'border-accent-primary bg-accent-primary/10'
-                : 'border-dark-700 hover:border-dark-600'
+                ? 'border-blue-500 bg-blue-500/10'
+                : 'border-slate-700 hover:border-slate-600'
             }`}
           >
             <div
               className={`p-2 rounded-lg ${
                 value === mode.value
-                  ? 'bg-accent-primary/20 text-accent-primary'
-                  : 'bg-dark-800 text-dark-400'
+                  ? 'bg-blue-500/20 text-blue-500'
+                  : 'bg-slate-800 text-slate-400'
               }`}
             >
               {mode.icon}
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-dark-100">{mode.label}</span>
+                <span className="font-medium text-slate-100">{mode.label}</span>
                 {mode.value === 'suggest' && (
-                  <span className="text-xs px-2 py-0.5 bg-accent-primary/20 text-accent-primary rounded-full">
+                  <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-500 rounded-full">
                     Recommended
                   </span>
                 )}
               </div>
-              <p className="text-sm text-dark-400 mt-1">{mode.description}</p>
+              <p className="text-sm text-slate-400 mt-1">{mode.description}</p>
             </div>
             {value === mode.value && (
-              <Check className="w-5 h-5 text-accent-primary flex-shrink-0" />
+              <Check className="w-5 h-5 text-blue-500 flex-shrink-0" />
             )}
           </button>
         ))}
@@ -210,14 +211,14 @@ function ApprovalStep({
       <div className="flex justify-between">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 text-dark-400 hover:text-dark-200 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-slate-400 hover:text-slate-200 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
           Back
         </button>
         <button
           onClick={onNext}
-          className="flex items-center gap-2 px-6 py-2 bg-accent-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
+          className="flex items-center gap-2 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
         >
           Continue
           <ChevronRight className="w-4 h-4" />
@@ -241,10 +242,10 @@ function ThemeStep({
 }) {
   return (
     <div>
-      <h2 className="text-xl font-bold text-dark-100 mb-2">
+      <h2 className="text-xl font-bold text-slate-100 mb-2">
         Choose Your Theme
       </h2>
-      <p className="text-dark-400 mb-6">
+      <p className="text-slate-400 mb-6">
         Select your preferred appearance
       </p>
 
@@ -253,32 +254,32 @@ function ThemeStep({
           onClick={() => onChange('dark')}
           className={`flex-1 flex flex-col items-center gap-3 p-6 rounded-lg border transition-colors ${
             value === 'dark'
-              ? 'border-accent-primary bg-accent-primary/10'
-              : 'border-dark-700 hover:border-dark-600'
+              ? 'border-blue-500 bg-blue-500/10'
+              : 'border-slate-700 hover:border-slate-600'
           }`}
         >
-          <div className="w-16 h-16 rounded-xl bg-dark-800 flex items-center justify-center">
-            <Moon className="w-8 h-8 text-dark-300" />
+          <div className="w-16 h-16 rounded-xl bg-slate-800 flex items-center justify-center">
+            <Moon className="w-8 h-8 text-slate-300" />
           </div>
-          <span className="font-medium text-dark-100">Dark</span>
+          <span className="font-medium text-slate-100">Dark</span>
           {value === 'dark' && (
-            <Check className="w-5 h-5 text-accent-primary" />
+            <Check className="w-5 h-5 text-blue-500" />
           )}
         </button>
         <button
           onClick={() => onChange('light')}
           className={`flex-1 flex flex-col items-center gap-3 p-6 rounded-lg border transition-colors ${
             value === 'light'
-              ? 'border-accent-primary bg-accent-primary/10'
-              : 'border-dark-700 hover:border-dark-600'
+              ? 'border-blue-500 bg-blue-500/10'
+              : 'border-slate-700 hover:border-slate-600'
           }`}
         >
-          <div className="w-16 h-16 rounded-xl bg-dark-200 flex items-center justify-center">
-            <Sun className="w-8 h-8 text-dark-800" />
+          <div className="w-16 h-16 rounded-xl bg-slate-200 flex items-center justify-center">
+            <Sun className="w-8 h-8 text-slate-800" />
           </div>
-          <span className="font-medium text-dark-100">Light</span>
+          <span className="font-medium text-slate-100">Light</span>
           {value === 'light' && (
-            <Check className="w-5 h-5 text-accent-primary" />
+            <Check className="w-5 h-5 text-blue-500" />
           )}
         </button>
       </div>
@@ -286,14 +287,14 @@ function ThemeStep({
       <div className="flex justify-between">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 text-dark-400 hover:text-dark-200 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-slate-400 hover:text-slate-200 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
           Back
         </button>
         <button
           onClick={onNext}
-          className="flex items-center gap-2 px-6 py-2 bg-accent-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
+          className="flex items-center gap-2 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
         >
           Continue
           <ChevronRight className="w-4 h-4" />
@@ -317,10 +318,10 @@ function NotificationsStep({
 }) {
   return (
     <div>
-      <h2 className="text-xl font-bold text-dark-100 mb-2">
+      <h2 className="text-xl font-bold text-slate-100 mb-2">
         Enable Notifications?
       </h2>
-      <p className="text-dark-400 mb-6">
+      <p className="text-slate-400 mb-6">
         Get notified when tasks complete or require your attention
       </p>
 
@@ -329,43 +330,43 @@ function NotificationsStep({
           onClick={() => onChange(true)}
           className={`flex-1 flex flex-col items-center gap-3 p-6 rounded-lg border transition-colors ${
             value
-              ? 'border-accent-primary bg-accent-primary/10'
-              : 'border-dark-700 hover:border-dark-600'
+              ? 'border-blue-500 bg-blue-500/10'
+              : 'border-slate-700 hover:border-slate-600'
           }`}
         >
-          <div className="w-16 h-16 rounded-xl bg-accent-primary/20 flex items-center justify-center">
-            <Bell className="w-8 h-8 text-accent-primary" />
+          <div className="w-16 h-16 rounded-xl bg-blue-500/20 flex items-center justify-center">
+            <Bell className="w-8 h-8 text-blue-500" />
           </div>
-          <span className="font-medium text-dark-100">Yes, notify me</span>
-          {value && <Check className="w-5 h-5 text-accent-primary" />}
+          <span className="font-medium text-slate-100">Yes, notify me</span>
+          {value && <Check className="w-5 h-5 text-blue-500" />}
         </button>
         <button
           onClick={() => onChange(false)}
           className={`flex-1 flex flex-col items-center gap-3 p-6 rounded-lg border transition-colors ${
             !value
-              ? 'border-accent-primary bg-accent-primary/10'
-              : 'border-dark-700 hover:border-dark-600'
+              ? 'border-blue-500 bg-blue-500/10'
+              : 'border-slate-700 hover:border-slate-600'
           }`}
         >
-          <div className="w-16 h-16 rounded-xl bg-dark-800 flex items-center justify-center">
-            <Bell className="w-8 h-8 text-dark-500" />
+          <div className="w-16 h-16 rounded-xl bg-slate-800 flex items-center justify-center">
+            <Bell className="w-8 h-8 text-slate-500" />
           </div>
-          <span className="font-medium text-dark-100">No thanks</span>
-          {!value && <Check className="w-5 h-5 text-accent-primary" />}
+          <span className="font-medium text-slate-100">No thanks</span>
+          {!value && <Check className="w-5 h-5 text-blue-500" />}
         </button>
       </div>
 
       <div className="flex justify-between">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 text-dark-400 hover:text-dark-200 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-slate-400 hover:text-slate-200 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
           Back
         </button>
         <button
           onClick={onNext}
-          className="flex items-center gap-2 px-6 py-2 bg-accent-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
+          className="flex items-center gap-2 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
         >
           Continue
           <ChevronRight className="w-4 h-4" />
@@ -385,26 +386,26 @@ function CompleteStep({
 }) {
   return (
     <div className="text-center">
-      <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-accent-success/20 flex items-center justify-center">
-        <Check className="w-10 h-10 text-accent-success" />
+      <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-500/20 flex items-center justify-center">
+        <Check className="w-10 h-10 text-green-500" />
       </div>
-      <h2 className="text-2xl font-bold text-dark-100 mb-3">
+      <h2 className="text-2xl font-bold text-slate-100 mb-3">
         You're all set!
       </h2>
-      <p className="text-dark-400 mb-8 max-w-md mx-auto">
+      <p className="text-slate-400 mb-8 max-w-md mx-auto">
         Your preferences have been saved. You can change them anytime in Settings.
       </p>
       <div className="flex justify-center gap-4">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 text-dark-400 hover:text-dark-200 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-slate-400 hover:text-slate-200 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
           Back
         </button>
         <button
           onClick={onComplete}
-          className="flex items-center gap-2 px-6 py-3 bg-accent-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
+          className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
         >
           Start Using Boatman
           <ChevronRight className="w-4 h-4" />

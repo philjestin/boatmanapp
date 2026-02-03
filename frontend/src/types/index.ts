@@ -141,6 +141,7 @@ export interface MCPServer {
 }
 
 export interface UserPreferences {
+  apiKey: string;
   approvalMode: ApprovalMode;
   defaultModel: string;
   theme: Theme;

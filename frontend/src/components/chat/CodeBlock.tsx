@@ -20,11 +20,11 @@ export function CodeBlock({ code, language = 'text', showLineNumbers = true }: C
 
   return (
     <div className="relative group rounded-lg overflow-hidden my-2">
-      <div className="flex items-center justify-between bg-dark-800 px-3 py-1.5 text-xs">
-        <span className="text-dark-400">{language}</span>
+      <div className="flex items-center justify-between bg-slate-800 px-3 py-1.5 text-xs">
+        <span className="text-slate-400">{language}</span>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1 text-dark-400 hover:text-dark-200 transition-colors"
+          className="flex items-center gap-1 text-slate-400 hover:text-slate-200 transition-colors"
         >
           {copied ? (
             <>

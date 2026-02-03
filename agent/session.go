@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os/exec"
 	"strings"
 	"sync"
@@ -16,11 +15,11 @@ import (
 type SessionStatus string
 
 const (
-	SessionStatusIdle     SessionStatus = "idle"
-	SessionStatusRunning  SessionStatus = "running"
-	SessionStatusWaiting  SessionStatus = "waiting"
-	SessionStatusError    SessionStatus = "error"
-	SessionStatusStopped  SessionStatus = "stopped"
+	SessionStatusIdle    SessionStatus = "idle"
+	SessionStatusRunning SessionStatus = "running"
+	SessionStatusWaiting SessionStatus = "waiting"
+	SessionStatusError   SessionStatus = "error"
+	SessionStatusStopped SessionStatus = "stopped"
 )
 
 // Message represents a chat message
@@ -77,19 +76,15 @@ type Session struct {
 	Tasks       []Task        `json:"tasks"`
 	CreatedAt   time.Time     `json:"createdAt"`
 	UpdatedAt   time.Time     `json:"updatedAt"`
+	Model       string        `json:"model"`
 
-	mu              sync.RWMutex
-	cmd             *exec.Cmd
-	stdin           io.WriteCloser
-	stdout          io.ReadCloser
-	stderr          io.ReadCloser
-	cancel          context.CancelFunc
-	ctx             context.Context
-	onMessage       func(Message)
-	onTask          func(Task)
-	onStatus        func(SessionStatus)
-	currentResponse strings.Builder
-	isProcessing    bool
+	mu           sync.RWMutex
+	ctx          context.Context
+	cancel       context.CancelFunc
+	onMessage    func(Message)
+	onTask       func(Task)
+	onStatus     func(SessionStatus)
+	conversationID string
 }
 
 // NewSession creates a new agent session
@@ -126,66 +121,14 @@ func (s *Session) SetStatusHandler(handler func(SessionStatus)) {
 	s.onStatus = handler
 }
 
-// Start begins the Claude CLI process
+// Start initializes the session (no persistent process needed now)
 func (s *Session) Start(model string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.Status == SessionStatusRunning {
-		return fmt.Errorf("session already running")
-	}
-
 	s.ctx, s.cancel = context.WithCancel(context.Background())
-
-	// Build command arguments - use interactive JSON streaming mode
-	args := []string{
-		"--output-format", "stream-json",
-		"--verbose",
-	}
-
-	if model != "" {
-		args = append(args, "--model", model)
-	}
-
-	s.cmd = exec.CommandContext(s.ctx, "claude", args...)
-	s.cmd.Dir = s.ProjectPath
-
-	var err error
-	s.stdin, err = s.cmd.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create stdin pipe: %w", err)
-	}
-
-	s.stdout, err = s.cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create stdout pipe: %w", err)
-	}
-
-	s.stderr, err = s.cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create stderr pipe: %w", err)
-	}
-
-	if err := s.cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start claude process: %w", err)
-	}
-
-	// Start in idle state - ready to receive user input
+	s.Model = model
 	s.setStatus(SessionStatusIdle)
-
-	// Start output readers
-	go s.readOutput()
-	go s.readErrors()
-
-	// Monitor process exit
-	go func() {
-		s.cmd.Wait()
-		s.mu.Lock()
-		if s.Status != SessionStatusStopped {
-			s.setStatus(SessionStatusStopped)
-		}
-		s.mu.Unlock()
-	}()
 
 	return nil
 }
@@ -199,28 +142,15 @@ func (s *Session) Stop() error {
 		s.cancel()
 	}
 
-	if s.stdin != nil {
-		s.stdin.Close()
-	}
-
-	if s.cmd != nil && s.cmd.Process != nil {
-		s.cmd.Process.Kill()
-	}
-
 	s.setStatus(SessionStatusStopped)
 	return nil
 }
 
 // SendMessage sends a user message to the agent
-func (s *Session) SendMessage(content string) error {
+func (s *Session) SendMessage(content string, apiKey string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.stdin == nil {
-		return fmt.Errorf("session not started")
-	}
-
 	if s.Status == SessionStatusStopped || s.Status == SessionStatusError {
+		s.mu.Unlock()
 		return fmt.Errorf("session not available")
 	}
 
@@ -234,53 +164,216 @@ func (s *Session) SendMessage(content string) error {
 
 	s.Messages = append(s.Messages, msg)
 	s.UpdatedAt = time.Now()
-	s.isProcessing = true
-	s.currentResponse.Reset()
 
 	if s.onMessage != nil {
 		s.onMessage(msg)
 	}
 
-	// Set status to running - Claude is thinking
+	// Set status to running
 	s.setStatus(SessionStatusRunning)
+	s.mu.Unlock()
 
-	// Send to Claude CLI stdin
-	_, err := fmt.Fprintf(s.stdin, "%s\n", content)
-	return err
+	// Run Claude CLI in a goroutine
+	go s.runClaudeCommand(content, apiKey)
+
+	return nil
+}
+
+// runClaudeCommand executes the Claude CLI with the given prompt
+func (s *Session) runClaudeCommand(prompt string, apiKey string) {
+	// Build command arguments
+	args := []string{
+		"-p", prompt,
+		"--output-format", "stream-json",
+		"--verbose",
+	}
+
+	// Add conversation resume if we have one
+	if s.conversationID != "" {
+		args = append(args, "-r", s.conversationID)
+	}
+
+	if s.Model != "" {
+		args = append(args, "--model", s.Model)
+	}
+
+	cmd := exec.CommandContext(s.ctx, "claude", args...)
+	cmd.Dir = s.ProjectPath
+
+	// Set API key as environment variable if provided
+	if apiKey != "" {
+		cmd.Env = append(cmd.Environ(), "ANTHROPIC_API_KEY="+apiKey)
+	}
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		s.handleError(fmt.Errorf("failed to create stdout pipe: %w", err))
+		return
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		s.handleError(fmt.Errorf("failed to create stderr pipe: %w", err))
+		return
+	}
+
+	if err := cmd.Start(); err != nil {
+		s.handleError(fmt.Errorf("failed to start claude: %w", err))
+		return
+	}
+
+	// Read stderr in background
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			fmt.Printf("[claude stderr] %s\n", scanner.Text())
+		}
+	}()
+
+	// Read and parse stdout
+	var responseBuilder strings.Builder
+	scanner := bufio.NewScanner(stdout)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		s.parseStreamLine(line, &responseBuilder)
+	}
+
+	// Wait for command to finish
+	cmd.Wait()
+
+	// Flush any remaining response
+	if responseBuilder.Len() > 0 {
+		s.addAssistantMessage(responseBuilder.String())
+	}
+
+	// Set status back to idle
+	s.mu.Lock()
+	if s.Status == SessionStatusRunning {
+		s.setStatus(SessionStatusIdle)
+	}
+	s.mu.Unlock()
+}
+
+// parseStreamLine parses a single line of stream-json output
+func (s *Session) parseStreamLine(line string, responseBuilder *strings.Builder) {
+	if strings.TrimSpace(line) == "" {
+		return
+	}
+
+	var event map[string]any
+	if err := json.Unmarshal([]byte(line), &event); err != nil {
+		// Not JSON, might be plain text
+		fmt.Printf("[claude stdout] %s\n", line)
+		return
+	}
+
+	eventType, _ := event["type"].(string)
+
+	switch eventType {
+	case "system":
+		// System message - extract conversation ID if present
+		if convID, ok := event["conversation_id"].(string); ok {
+			s.mu.Lock()
+			s.conversationID = convID
+			s.mu.Unlock()
+		}
+		// Also check in subtype or session_id
+		if sessionID, ok := event["session_id"].(string); ok && s.conversationID == "" {
+			s.mu.Lock()
+			s.conversationID = sessionID
+			s.mu.Unlock()
+		}
+
+	case "assistant":
+		// Full assistant message
+		if message, ok := event["message"].(map[string]any); ok {
+			if content, ok := message["content"].([]any); ok {
+				for _, block := range content {
+					if textBlock, ok := block.(map[string]any); ok {
+						if textBlock["type"] == "text" {
+							if text, ok := textBlock["text"].(string); ok {
+								responseBuilder.WriteString(text)
+							}
+						}
+					}
+				}
+			}
+		}
+
+	case "content_block_delta":
+		// Streaming delta
+		if delta, ok := event["delta"].(map[string]any); ok {
+			if text, ok := delta["text"].(string); ok {
+				responseBuilder.WriteString(text)
+			}
+		}
+
+	case "content_block_stop":
+		// Block finished - flush to message
+		if responseBuilder.Len() > 0 {
+			s.addAssistantMessage(responseBuilder.String())
+			responseBuilder.Reset()
+		}
+
+	case "message_stop", "result":
+		// Message complete
+		if responseBuilder.Len() > 0 {
+			s.addAssistantMessage(responseBuilder.String())
+			responseBuilder.Reset()
+		}
+		// Extract conversation ID from result if present
+		if result, ok := event["result"].(map[string]any); ok {
+			if convID, ok := result["session_id"].(string); ok {
+				s.mu.Lock()
+				s.conversationID = convID
+				s.mu.Unlock()
+			}
+		}
+
+	case "tool_use":
+		s.handleToolUse(event)
+
+	case "tool_result":
+		s.handleToolResult(event)
+
+	case "input_request":
+		// Claude is asking for approval
+		s.mu.Lock()
+		s.setStatus(SessionStatusWaiting)
+		s.mu.Unlock()
+
+	case "error":
+		if errorMsg, ok := event["error"].(map[string]any); ok {
+			if message, ok := errorMsg["message"].(string); ok {
+				s.addSystemMessage("Error: " + message)
+			}
+		}
+		s.mu.Lock()
+		s.setStatus(SessionStatusError)
+		s.mu.Unlock()
+	}
+}
+
+func (s *Session) handleError(err error) {
+	s.addSystemMessage("Error: " + err.Error())
+	s.mu.Lock()
+	s.setStatus(SessionStatusError)
+	s.mu.Unlock()
 }
 
 // Approve approves a pending action
 func (s *Session) Approve(actionID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.stdin == nil {
-		return fmt.Errorf("session not running")
-	}
-
-	// Send approval (y) to stdin
-	_, err := fmt.Fprintln(s.stdin, "y")
-	if err == nil {
-		s.setStatus(SessionStatusRunning)
-	}
-	return err
+	// For now, we don't support approval in print mode
+	// This would require a different approach with interactive mode
+	return fmt.Errorf("approval not supported in current mode")
 }
 
 // Reject rejects a pending action
 func (s *Session) Reject(actionID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.stdin == nil {
-		return fmt.Errorf("session not running")
-	}
-
-	// Send rejection (n) to stdin
-	_, err := fmt.Fprintln(s.stdin, "n")
-	if err == nil {
-		s.setStatus(SessionStatusRunning)
-	}
-	return err
+	return fmt.Errorf("rejection not supported in current mode")
 }
 
 // GetMessages returns a copy of all messages
@@ -299,150 +392,6 @@ func (s *Session) GetTasks() []Task {
 	tasks := make([]Task, len(s.Tasks))
 	copy(tasks, s.Tasks)
 	return tasks
-}
-
-// readOutput reads and parses stdout from the CLI
-func (s *Session) readOutput() {
-	scanner := bufio.NewScanner(s.stdout)
-	// Increase buffer size for large outputs
-	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 1024*1024)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		s.parseOutput(line)
-	}
-}
-
-// readErrors reads stderr from the CLI
-func (s *Session) readErrors() {
-	scanner := bufio.NewScanner(s.stderr)
-	for scanner.Scan() {
-		line := scanner.Text()
-		// Log errors but don't necessarily show to user
-		fmt.Printf("[claude stderr] %s\n", line)
-	}
-}
-
-// parseOutput parses JSON output from Claude CLI
-func (s *Session) parseOutput(line string) {
-	// Skip empty lines
-	if strings.TrimSpace(line) == "" {
-		return
-	}
-
-	var event map[string]any
-	if err := json.Unmarshal([]byte(line), &event); err != nil {
-		// Not JSON, treat as plain text response
-		s.mu.Lock()
-		if s.isProcessing {
-			s.currentResponse.WriteString(line)
-			s.currentResponse.WriteString("\n")
-		}
-		s.mu.Unlock()
-		return
-	}
-
-	// Parse based on event type
-	eventType, _ := event["type"].(string)
-
-	switch eventType {
-	case "system":
-		// System initialization message - Claude is ready
-		s.mu.Lock()
-		if s.Status == SessionStatusRunning && !s.isProcessing {
-			s.setStatus(SessionStatusIdle)
-		}
-		s.mu.Unlock()
-
-	case "assistant":
-		// Assistant text message
-		if message, ok := event["message"].(map[string]any); ok {
-			if content, ok := message["content"].([]any); ok {
-				for _, block := range content {
-					if textBlock, ok := block.(map[string]any); ok {
-						if textBlock["type"] == "text" {
-							if text, ok := textBlock["text"].(string); ok {
-								s.addAssistantMessage(text)
-							}
-						}
-					}
-				}
-			}
-		}
-
-	case "content_block_start", "content_block_delta":
-		// Streaming content
-		if delta, ok := event["delta"].(map[string]any); ok {
-			if text, ok := delta["text"].(string); ok {
-				s.mu.Lock()
-				s.currentResponse.WriteString(text)
-				s.mu.Unlock()
-			}
-		}
-		if contentBlock, ok := event["content_block"].(map[string]any); ok {
-			if text, ok := contentBlock["text"].(string); ok {
-				s.mu.Lock()
-				s.currentResponse.WriteString(text)
-				s.mu.Unlock()
-			}
-		}
-
-	case "content_block_stop":
-		// Content block finished - flush accumulated response
-		s.mu.Lock()
-		if s.currentResponse.Len() > 0 {
-			content := s.currentResponse.String()
-			s.currentResponse.Reset()
-			s.mu.Unlock()
-			s.addAssistantMessage(content)
-		} else {
-			s.mu.Unlock()
-		}
-
-	case "message_stop", "result":
-		// Message complete - Claude is done responding
-		s.mu.Lock()
-		// Flush any remaining response
-		if s.currentResponse.Len() > 0 {
-			content := s.currentResponse.String()
-			s.currentResponse.Reset()
-			s.isProcessing = false
-			s.mu.Unlock()
-			s.addAssistantMessage(content)
-		} else {
-			s.isProcessing = false
-			s.mu.Unlock()
-		}
-		// Set status to idle - ready for next input
-		s.mu.Lock()
-		s.setStatus(SessionStatusIdle)
-		s.mu.Unlock()
-
-	case "tool_use":
-		s.handleToolUse(event)
-
-	case "tool_result":
-		s.handleToolResult(event)
-
-	case "input_request":
-		// Claude is asking for user input (approval)
-		s.mu.Lock()
-		s.setStatus(SessionStatusWaiting)
-		s.mu.Unlock()
-
-	case "error":
-		// Error occurred
-		if errorMsg, ok := event["error"].(map[string]any); ok {
-			if message, ok := errorMsg["message"].(string); ok {
-				s.addSystemMessage("Error: " + message)
-			}
-		}
-		s.mu.Lock()
-		s.isProcessing = false
-		s.setStatus(SessionStatusError)
-		s.mu.Unlock()
-	}
 }
 
 func (s *Session) addAssistantMessage(content string) {

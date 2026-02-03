@@ -167,6 +167,7 @@ export namespace config {
 	    }
 	}
 	export class UserPreferences {
+	    apiKey: string;
 	    approvalMode: string;
 	    defaultModel: string;
 	    theme: string;
@@ -180,6 +181,7 @@ export namespace config {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.apiKey = source["apiKey"];
 	        this.approvalMode = source["approvalMode"];
 	        this.defaultModel = source["defaultModel"];
 	        this.theme = source["theme"];

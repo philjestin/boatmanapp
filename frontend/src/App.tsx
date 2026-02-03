@@ -47,6 +47,7 @@ function App() {
   const {
     preferences,
     onboardingOpen,
+    isLoading,
     savePreferences,
     completeOnboardingFlow,
   } = usePreferences();
@@ -96,6 +97,18 @@ function App() {
       await rejectAction(activeSession.id, '');
     }
   };
+
+  // Show loading state while preferences are loading
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-900 text-slate-100">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p>Loading Boatman...</p>
+        </div>
+      </div>
+    );
+  }
 
   const isWaitingForApproval = activeSession?.status === 'waiting';
   const hasActiveSession = activeSession !== null;
