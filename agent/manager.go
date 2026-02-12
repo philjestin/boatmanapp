@@ -18,13 +18,25 @@ type AuthConfig struct {
 	ApprovalMode string // "suggest", "auto-edit", "full-auto"
 }
 
+// ConfigGetter retrieves memory management configuration
+type ConfigGetter interface {
+	GetMaxMessagesPerSession() int
+	GetArchiveOldMessages() bool
+	GetMaxSessionAgeDays() int
+	GetMaxTotalSessions() int
+	GetAutoCleanupSessions() bool
+	GetMaxAgentsPerSession() int
+	GetKeepCompletedAgents() bool
+}
+
 // Manager handles multiple agent sessions
 type Manager struct {
-	ctx             context.Context
-	sessions        map[string]*Session
-	mu              sync.RWMutex
-	defaultModel    string
+	ctx              context.Context
+	sessions         map[string]*Session
+	mu               sync.RWMutex
+	defaultModel     string
 	authConfigGetter func() AuthConfig
+	configGetter     ConfigGetter
 }
 
 // NewManager creates a new agent manager
@@ -66,6 +78,20 @@ func (m *Manager) SetAPIKeyGetter(getter func() string) {
 	}
 }
 
+// SetConfigGetter sets the config getter for memory management settings
+func (m *Manager) SetConfigGetter(getter ConfigGetter) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.configGetter = getter
+}
+
+// GetConfigGetter returns the config getter
+func (m *Manager) GetConfigGetter() ConfigGetter {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.configGetter
+}
+
 // CreateSession creates a new agent session for a project
 func (m *Manager) CreateSession(projectPath string) (*Session, error) {
 	m.mu.Lock()
@@ -101,6 +127,18 @@ func (m *Manager) CreateSession(projectPath string) (*Session, error) {
 			})
 		}
 	})
+
+	// Set trim settings from config
+	if m.configGetter != nil {
+		maxMessages := m.configGetter.GetMaxMessagesPerSession()
+		archive := m.configGetter.GetArchiveOldMessages()
+		session.SetTrimSettings(maxMessages, archive)
+
+		// Set agent cleanup settings
+		maxAgents := m.configGetter.GetMaxAgentsPerSession()
+		keepCompleted := m.configGetter.GetKeepCompletedAgents()
+		session.SetAgentCleanupSettings(maxAgents, keepCompleted)
+	}
 
 	m.sessions[sessionID] = session
 	return session, nil
@@ -139,7 +177,20 @@ func (m *Manager) StartSession(sessionID string) error {
 
 	m.mu.RLock()
 	model := m.defaultModel
+	configGetter := m.configGetter
 	m.mu.RUnlock()
+
+	// Update trim settings in case they changed
+	if configGetter != nil {
+		maxMessages := configGetter.GetMaxMessagesPerSession()
+		archive := configGetter.GetArchiveOldMessages()
+		session.SetTrimSettings(maxMessages, archive)
+
+		// Update agent cleanup settings
+		maxAgents := configGetter.GetMaxAgentsPerSession()
+		keepCompleted := configGetter.GetKeepCompletedAgents()
+		session.SetAgentCleanupSettings(maxAgents, keepCompleted)
+	}
 
 	return session.Start(model)
 }
@@ -230,4 +281,30 @@ func (m *Manager) StopAllSessions() {
 	for _, session := range m.sessions {
 		session.Stop()
 	}
+}
+
+// CleanupSessions removes old sessions based on config settings
+func (m *Manager) CleanupSessions() (int, error) {
+	m.mu.RLock()
+	configGetter := m.configGetter
+	m.mu.RUnlock()
+
+	if configGetter == nil || !configGetter.GetAutoCleanupSessions() {
+		return 0, nil
+	}
+
+	maxAgeDays := configGetter.GetMaxSessionAgeDays()
+	maxTotal := configGetter.GetMaxTotalSessions()
+
+	return CleanupOldSessions(maxAgeDays, maxTotal)
+}
+
+// MarkAgentCompleted marks an agent as completed
+func (m *Manager) MarkAgentCompleted(sessionID, agentID string) error {
+	session, err := m.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	session.MarkAgentCompleted(agentID)
+	return nil
 }

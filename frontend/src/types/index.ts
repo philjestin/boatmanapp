@@ -160,6 +160,15 @@ export interface UserPreferences {
   notificationsEnabled: boolean;
   mcpServers: MCPServer[];
   onboardingCompleted: boolean;
+
+  // Memory management settings
+  maxMessagesPerSession?: number;
+  archiveOldMessages?: boolean;
+  maxSessionAgeDays?: number;
+  maxTotalSessions?: number;
+  autoCleanupSessions?: boolean;
+  maxAgentsPerSession?: number;
+  keepCompletedAgents?: boolean;
 }
 
 export interface ProjectPreferences {

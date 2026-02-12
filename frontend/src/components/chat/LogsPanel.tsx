@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Terminal, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import type { Message } from '../../types';
 
@@ -16,10 +16,10 @@ interface LogEntry {
 
 export function LogsPanel({ messages, isActive }: LogsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  // Memoize log conversion to avoid rebuilding on every render
+  const logs = useMemo(() => {
     console.log('[LogsPanel] Messages updated:', messages.length, 'messages');
 
     // Convert messages to log entries
@@ -33,23 +33,26 @@ export function LogsPanel({ messages, isActive }: LogsPanelProps) {
       metadata: msg.metadata,
     }));
 
-    // Add activity indicator
-    if (isActive && newLogs.length > 0) {
-      newLogs.push({
-        timestamp: new Date(),
-        type: 'event',
-        content: '⚡ Claude is working...',
-      });
-    }
-
     console.log('[LogsPanel] Converted to logs:', newLogs.length, 'entries');
-    setLogs(newLogs);
-  }, [messages, isActive]);
+    return newLogs;
+  }, [messages]);
+
+  // Memoize activity indicator separately to avoid rebuilding logs
+  const logsWithActivity = useMemo(() => {
+    if (isActive && logs.length > 0) {
+      return [...logs, {
+        timestamp: new Date(),
+        type: 'event' as const,
+        content: '⚡ Claude is working...',
+      }];
+    }
+    return logs;
+  }, [logs, isActive]);
 
   useEffect(() => {
     // Auto-scroll to bottom
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
+  }, [logsWithActivity]);
 
   const getLogColor = (type: string) => {
     switch (type) {
@@ -93,19 +96,10 @@ export function LogsPanel({ messages, isActive }: LogsPanelProps) {
               Active
             </span>
           )}
-          <span className="text-xs text-slate-500">({logs.length} entries)</span>
+          <span className="text-xs text-slate-500">({logsWithActivity.length} entries)</span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setLogs([]);
-            }}
-            className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
-            title="Clear logs"
-          >
-            <Trash2 className="w-3 h-3" />
-          </button>
+          {/* Clear button removed since logs are now derived from messages */}
           {isExpanded ? (
             <ChevronDown className="w-4 h-4 text-slate-400" />
           ) : (
@@ -117,13 +111,13 @@ export function LogsPanel({ messages, isActive }: LogsPanelProps) {
       {/* Logs content */}
       {isExpanded && (
         <div className="h-64 overflow-y-auto bg-slate-950 p-3 font-mono text-xs">
-          {logs.length === 0 ? (
+          {logsWithActivity.length === 0 ? (
             <div className="flex items-center justify-center h-full text-slate-600">
               No activity yet. Send a message to see logs.
             </div>
           ) : (
             <div className="space-y-1">
-              {logs.map((log, index) => (
+              {logsWithActivity.map((log, index) => (
                 <div key={index} className="flex gap-2">
                   <span className="text-slate-600 flex-shrink-0">
                     {log.timestamp.toLocaleTimeString()}

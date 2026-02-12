@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { X, Moon, Sun, Bell, BellOff, Shield, Zap, Bot, Server, Key, Eye, EyeOff } from 'lucide-react';
+import { X, Moon, Sun, Bell, BellOff, Shield, Zap, Bot, Server, Key, Eye, EyeOff, Database, Trash2 } from 'lucide-react';
 import type { UserPreferences, ApprovalMode, Theme, MCPServer } from '../../types';
+import { CleanupOldSessions, GetSessionStats } from '../../../wailsjs/go/main/App';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -9,7 +10,7 @@ interface SettingsModalProps {
   onSave: (preferences: UserPreferences) => void;
 }
 
-type SettingsTab = 'general' | 'approval' | 'mcp' | 'about';
+type SettingsTab = 'general' | 'approval' | 'memory' | 'mcp' | 'about';
 
 export function SettingsModal({ isOpen, onClose, preferences, onSave }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
@@ -25,6 +26,7 @@ export function SettingsModal({ isOpen, onClose, preferences, onSave }: Settings
   const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
     { id: 'general', label: 'General', icon: <Sun className="w-4 h-4" /> },
     { id: 'approval', label: 'Approval', icon: <Shield className="w-4 h-4" /> },
+    { id: 'memory', label: 'Memory', icon: <Database className="w-4 h-4" /> },
     { id: 'mcp', label: 'MCP Servers', icon: <Server className="w-4 h-4" /> },
     { id: 'about', label: 'About', icon: <Bot className="w-4 h-4" /> },
   ];
@@ -76,6 +78,12 @@ export function SettingsModal({ isOpen, onClose, preferences, onSave }: Settings
             )}
             {activeTab === 'approval' && (
               <ApprovalSettings
+                preferences={localPrefs}
+                onChange={setLocalPrefs}
+              />
+            )}
+            {activeTab === 'memory' && (
+              <MemorySettings
                 preferences={localPrefs}
                 onChange={setLocalPrefs}
               />
@@ -369,6 +377,218 @@ function ApprovalSettings({
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+// Memory Settings Tab
+function MemorySettings({
+  preferences,
+  onChange,
+}: {
+  preferences: UserPreferences;
+  onChange: (prefs: UserPreferences) => void;
+}) {
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [cleanupMessage, setCleanupMessage] = useState('');
+
+  const handleManualCleanup = async () => {
+    try {
+      setIsCleaningUp(true);
+      const count = await CleanupOldSessions();
+      setCleanupMessage(`Cleaned up ${count} old session(s)`);
+      setTimeout(() => setCleanupMessage(''), 3000);
+    } catch (error) {
+      setCleanupMessage('Failed to cleanup sessions');
+      setTimeout(() => setCleanupMessage(''), 3000);
+    } finally {
+      setIsCleaningUp(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-sm font-medium text-slate-100 mb-2">Message Management</h3>
+        <p className="text-xs text-slate-400 mb-4">
+          Control how messages are stored and archived
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">
+              Max Messages Per Session
+            </label>
+            <input
+              type="number"
+              min="100"
+              max="10000"
+              value={preferences.maxMessagesPerSession || 1000}
+              onChange={(e) =>
+                onChange({
+                  ...preferences,
+                  maxMessagesPerSession: parseInt(e.target.value) || 1000,
+                })
+              }
+              className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              Keep the most recent messages (default: 1000)
+            </p>
+          </div>
+
+          <label className="flex items-center justify-between p-4 rounded-lg border border-slate-700 cursor-pointer hover:bg-slate-800 transition-colors">
+            <div>
+              <p className="text-sm text-slate-100">Archive Old Messages</p>
+              <p className="text-xs text-slate-400">
+                Save trimmed messages to disk instead of deleting them
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={preferences.archiveOldMessages ?? true}
+              onChange={(e) =>
+                onChange({ ...preferences, archiveOldMessages: e.target.checked })
+              }
+              className="w-4 h-4 rounded"
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="pt-6 border-t border-slate-700">
+        <h3 className="text-sm font-medium text-slate-100 mb-2">Session Cleanup</h3>
+        <p className="text-xs text-slate-400 mb-4">
+          Automatically remove old sessions to save disk space
+        </p>
+
+        <div className="space-y-4">
+          <label className="flex items-center justify-between p-4 rounded-lg border border-slate-700 cursor-pointer hover:bg-slate-800 transition-colors">
+            <div>
+              <p className="text-sm text-slate-100">Auto-Cleanup Sessions</p>
+              <p className="text-xs text-slate-400">
+                Automatically clean up sessions on app startup
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={preferences.autoCleanupSessions ?? true}
+              onChange={(e) =>
+                onChange({ ...preferences, autoCleanupSessions: e.target.checked })
+              }
+              className="w-4 h-4 rounded"
+            />
+          </label>
+
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">
+              Max Session Age (days)
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="365"
+              value={preferences.maxSessionAgeDays || 30}
+              onChange={(e) =>
+                onChange({
+                  ...preferences,
+                  maxSessionAgeDays: parseInt(e.target.value) || 30,
+                })
+              }
+              className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              Delete sessions older than this (default: 30 days)
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">
+              Max Total Sessions
+            </label>
+            <input
+              type="number"
+              min="10"
+              max="1000"
+              value={preferences.maxTotalSessions || 100}
+              onChange={(e) =>
+                onChange({
+                  ...preferences,
+                  maxTotalSessions: parseInt(e.target.value) || 100,
+                })
+              }
+              className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              Keep only the most recent sessions (default: 100)
+            </p>
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={handleManualCleanup}
+              disabled={isCleaningUp}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-4 h-4" />
+              {isCleaningUp ? 'Cleaning up...' : 'Clean Up Old Sessions Now'}
+            </button>
+            {cleanupMessage && (
+              <p className="text-xs text-center text-green-400 mt-2">
+                {cleanupMessage}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-6 border-t border-slate-700">
+        <h3 className="text-sm font-medium text-slate-100 mb-2">Agent Management</h3>
+        <p className="text-xs text-slate-400 mb-4">
+          Control how sub-agents are tracked and stored
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">
+              Max Agents Per Session
+            </label>
+            <input
+              type="number"
+              min="5"
+              max="100"
+              value={preferences.maxAgentsPerSession || 20}
+              onChange={(e) =>
+                onChange({
+                  ...preferences,
+                  maxAgentsPerSession: parseInt(e.target.value) || 20,
+                })
+              }
+              className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              Maximum number of agents to track (default: 20)
+            </p>
+          </div>
+
+          <label className="flex items-center justify-between p-4 rounded-lg border border-slate-700 cursor-pointer hover:bg-slate-800 transition-colors">
+            <div>
+              <p className="text-sm text-slate-100">Keep Completed Agents</p>
+              <p className="text-xs text-slate-400">
+                Retain completed agents (may increase memory usage)
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={preferences.keepCompletedAgents ?? false}
+              onChange={(e) =>
+                onChange({ ...preferences, keepCompletedAgents: e.target.checked })
+              }
+              className="w-4 h-4 rounded"
+            />
+          </label>
+        </div>
+      </div>
     </div>
   );
 }

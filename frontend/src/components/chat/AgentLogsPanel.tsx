@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Terminal, ChevronDown, ChevronUp, Trash2, GitBranch } from 'lucide-react';
 import type { Message, AgentInfo } from '../../types';
 
@@ -24,10 +24,10 @@ export function AgentLogsPanel({ messages, isActive }: AgentLogsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [activeAgentId, setActiveAgentId] = useState<string>('main');
   const [showHierarchy, setShowHierarchy] = useState(false);
-  const [agents, setAgents] = useState<Map<string, AgentData>>(new Map());
   const logsEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  // Memoize agent map construction to avoid rebuilding on every render
+  const agents = useMemo(() => {
     console.log('[AgentLogsPanel] Processing messages:', messages.length);
 
     // Group messages by agent
@@ -63,31 +63,41 @@ export function AgentLogsPanel({ messages, isActive }: AgentLogsPanelProps) {
       agentMap.get(agentId)!.logs.push(logEntry);
     });
 
-    // Add activity indicator for active agents
-    if (isActive && agentMap.size > 0) {
-      agentMap.forEach((data, agentId) => {
-        data.logs.push({
+    console.log('[AgentLogsPanel] Agents found:', Array.from(agentMap.keys()));
+    return agentMap;
+  }, [messages]);
+
+  // Memoize agents with activity indicator separately
+  const agentsWithActivity = useMemo(() => {
+    if (!isActive || agents.size === 0) return agents;
+
+    const agentMapCopy = new Map(agents);
+    agentMapCopy.forEach((data, agentId) => {
+      agentMapCopy.set(agentId, {
+        ...data,
+        logs: [...data.logs, {
           timestamp: new Date(),
-          type: 'event',
+          type: 'event' as const,
           content: '⚡ Working...',
           agentId,
-        });
+        }],
       });
-    }
+    });
 
-    console.log('[AgentLogsPanel] Agents found:', Array.from(agentMap.keys()));
-    setAgents(agentMap);
+    return agentMapCopy;
+  }, [agents, isActive]);
 
-    // Auto-select first agent if current selection doesn't exist
-    if (!agentMap.has(activeAgentId) && agentMap.size > 0) {
-      setActiveAgentId(agentMap.keys().next().value);
+  // Auto-select first agent if current selection doesn't exist
+  useEffect(() => {
+    if (!agentsWithActivity.has(activeAgentId) && agentsWithActivity.size > 0) {
+      setActiveAgentId(agentsWithActivity.keys().next().value);
     }
-  }, [messages, isActive]);
+  }, [agentsWithActivity, activeAgentId]);
 
   useEffect(() => {
     // Auto-scroll to bottom
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [agents, activeAgentId]);
+  }, [agentsWithActivity, activeAgentId]);
 
   const getAgentColor = (agentType: string) => {
     switch (agentType) {
@@ -125,10 +135,10 @@ export function AgentLogsPanel({ messages, isActive }: AgentLogsPanelProps) {
   };
 
   const renderAgentHierarchy = () => {
-    const mainAgent = agents.get('main');
+    const mainAgent = agentsWithActivity.get('main');
     if (!mainAgent) return null;
 
-    const subAgents = Array.from(agents.entries())
+    const subAgents = Array.from(agentsWithActivity.entries())
       .filter(([id]) => id !== 'main')
       .map(([id, data]) => ({ id, ...data }));
 
@@ -166,7 +176,7 @@ export function AgentLogsPanel({ messages, isActive }: AgentLogsPanelProps) {
     );
   };
 
-  const currentAgent = agents.get(activeAgentId);
+  const currentAgent = agentsWithActivity.get(activeAgentId);
   const currentLogs = currentAgent?.logs || [];
 
   return (
@@ -188,11 +198,11 @@ export function AgentLogsPanel({ messages, isActive }: AgentLogsPanelProps) {
             </span>
           )}
           <span className="text-xs text-slate-500">
-            ({agents.size} agent{agents.size !== 1 ? 's' : ''})
+            ({agentsWithActivity.size} agent{agentsWithActivity.size !== 1 ? 's' : ''})
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {agents.size > 1 && (
+          {agentsWithActivity.size > 1 && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -206,16 +216,7 @@ export function AgentLogsPanel({ messages, isActive }: AgentLogsPanelProps) {
               <GitBranch className="w-3 h-3" />
             </button>
           )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setAgents(new Map());
-            }}
-            className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
-            title="Clear logs"
-          >
-            <Trash2 className="w-3 h-3" />
-          </button>
+          {/* Clear button removed since logs are now derived from messages */}
           {isExpanded ? (
             <ChevronDown className="w-4 h-4 text-slate-400" />
           ) : (
@@ -228,9 +229,9 @@ export function AgentLogsPanel({ messages, isActive }: AgentLogsPanelProps) {
       {isExpanded && showHierarchy && renderAgentHierarchy()}
 
       {/* Agent tabs */}
-      {isExpanded && agents.size > 1 && (
+      {isExpanded && agentsWithActivity.size > 1 && (
         <div className="flex gap-1 px-2 py-2 bg-slate-900 border-b border-slate-700 overflow-x-auto">
-          {Array.from(agents.entries()).map(([agentId, data]) => {
+          {Array.from(agentsWithActivity.entries()).map(([agentId, data]) => {
             const color = getAgentColor(data.info.agentType);
             const isActive = agentId === activeAgentId;
             return (

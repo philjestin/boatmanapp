@@ -29,12 +29,14 @@ function App() {
   const {
     sessions,
     activeSession,
+    messagePagination,
     createSession,
     deleteSession,
     selectSession,
     sendMessage,
     approveAction,
     rejectAction,
+    loadMessagesPaginated,
   } = useAgent();
 
   const {
@@ -98,6 +100,15 @@ function App() {
     }
   };
 
+  // Handle load more messages
+  const handleLoadMore = async () => {
+    if (activeSession) {
+      const currentPagination = messagePagination.get(activeSession.id);
+      const nextPage = currentPagination ? currentPagination.page + 1 : 1;
+      await loadMessagesPaginated(activeSession.id, nextPage, 50);
+    }
+  };
+
   // Show loading state while preferences are loading
   if (isLoading) {
     return (
@@ -112,6 +123,11 @@ function App() {
 
   const isWaitingForApproval = activeSession?.status === 'waiting';
   const hasActiveSession = activeSession !== null;
+
+  // Get pagination info for active session
+  const currentPagination = activeSession
+    ? messagePagination.get(activeSession.id)
+    : undefined;
 
   return (
     <div className="h-screen flex flex-col bg-slate-900 text-slate-100">
@@ -205,6 +221,8 @@ function App() {
                     messages={activeSession.messages}
                     status={activeSession.status}
                     onSendMessage={handleSendMessage}
+                    hasMoreMessages={currentPagination?.hasMore ?? false}
+                    onLoadMore={handleLoadMore}
                   />
                 )}
                 {activeTab === 'tasks' && (

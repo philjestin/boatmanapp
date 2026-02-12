@@ -13,9 +13,16 @@ import type {
 // Agent Slice
 // =============================================================================
 
+interface MessagePagination {
+  page: number;
+  hasMore: boolean;
+  total: number;
+}
+
 interface AgentState {
   sessions: AgentSession[];
   activeSessionId: string | null;
+  messagePagination: Map<string, MessagePagination>;
 }
 
 interface AgentActions {
@@ -28,6 +35,10 @@ interface AgentActions {
   // Messages
   addMessage: (sessionId: string, message: Message) => void;
   setMessages: (sessionId: string, messages: Message[]) => void;
+  appendMessages: (sessionId: string, messages: Message[]) => void;
+
+  // Pagination
+  setMessagePagination: (sessionId: string, pagination: MessagePagination) => void;
 
   // Tasks
   updateTask: (sessionId: string, task: Task) => void;
@@ -100,6 +111,7 @@ const initialState: StoreState = {
   // Agent state
   sessions: [],
   activeSessionId: null,
+  messagePagination: new Map(),
 
   // Project state
   projects: [],
@@ -188,6 +200,30 @@ export const useStore = create<Store>()(
             }),
             false,
             'setMessages'
+          ),
+
+        appendMessages: (sessionId, messages) =>
+          set(
+            (state) => ({
+              sessions: state.sessions.map((s) =>
+                s.id === sessionId
+                  ? { ...s, messages: [...messages, ...s.messages] }
+                  : s
+              ),
+            }),
+            false,
+            'appendMessages'
+          ),
+
+        setMessagePagination: (sessionId, pagination) =>
+          set(
+            (state) => {
+              const newPagination = new Map(state.messagePagination);
+              newPagination.set(sessionId, pagination);
+              return { messagePagination: newPagination };
+            },
+            false,
+            'setMessagePagination'
           ),
 
         updateTask: (sessionId, task) =>

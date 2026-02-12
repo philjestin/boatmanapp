@@ -12,6 +12,7 @@ import {
   ApproveAgentAction,
   RejectAgentAction,
   GetAgentMessages,
+  GetAgentMessagesPaginated,
   GetAgentTasks,
   ListAgentSessions,
 } from '../../wailsjs/go/main/App';
@@ -21,12 +22,15 @@ export function useAgent() {
   const {
     sessions,
     activeSessionId,
+    messagePagination,
     addSession,
     removeSession,
     setActiveSession,
     updateSessionStatus,
     addMessage,
     setMessages,
+    appendMessages,
+    setMessagePagination,
     updateTask,
     setTasks,
     setLoading,
@@ -197,6 +201,36 @@ export function useAgent() {
     }
   }, [setMessages]);
 
+  // Load messages with pagination
+  const loadMessagesPaginated = useCallback(
+    async (sessionId: string, page: number, pageSize: number = 50) => {
+      try {
+        setLoading('messages', true);
+        const result = await GetAgentMessagesPaginated(sessionId, page, pageSize);
+
+        // If it's the first page, replace messages; otherwise append
+        if (page === 0) {
+          setMessages(sessionId, result.messages as unknown as Message[]);
+        } else {
+          appendMessages(sessionId, result.messages as unknown as Message[]);
+        }
+
+        // Update pagination state
+        setMessagePagination(sessionId, {
+          page: result.page,
+          hasMore: result.hasMore,
+          total: result.total,
+        });
+      } catch (err) {
+        console.error('Failed to load paginated messages:', err);
+        setError('Failed to load messages');
+      } finally {
+        setLoading('messages', false);
+      }
+    },
+    [setMessages, appendMessages, setMessagePagination, setLoading, setError]
+  );
+
   // Load tasks for a session
   const loadTasks = useCallback(async (sessionId: string) => {
     try {
@@ -220,6 +254,7 @@ export function useAgent() {
     sessions,
     activeSession,
     activeSessionId,
+    messagePagination,
     createSession,
     startSession,
     stopSession,
@@ -228,5 +263,6 @@ export function useAgent() {
     sendMessage,
     approveAction,
     rejectAction,
+    loadMessagesPaginated,
   };
 }

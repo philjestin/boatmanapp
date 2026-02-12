@@ -62,6 +62,16 @@ func (a *App) startup(ctx context.Context) {
 			ApprovalMode: string(prefs.ApprovalMode),
 		}
 	})
+
+	// Set config getter for memory management
+	a.agentManager.SetConfigGetter(a)
+
+	// Run session cleanup asynchronously on startup
+	go func() {
+		if count, err := a.agentManager.CleanupSessions(); err == nil && count > 0 {
+			runtime.LogInfof(ctx, "Cleaned up %d old sessions", count)
+		}
+	}()
 }
 
 // shutdown is called when the app is closing
@@ -153,6 +163,64 @@ func (a *App) RejectAgentAction(sessionID, actionID string) error {
 // GetAgentMessages returns messages for a session
 func (a *App) GetAgentMessages(sessionID string) ([]agent.Message, error) {
 	return a.agentManager.GetSessionMessages(sessionID)
+}
+
+// MessagePage represents a page of messages
+type MessagePage struct {
+	Messages []agent.Message `json:"messages"`
+	Total    int             `json:"total"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"pageSize"`
+	HasMore  bool            `json:"hasMore"`
+}
+
+// GetAgentMessagesPaginated returns a paginated list of messages for a session
+func (a *App) GetAgentMessagesPaginated(sessionID string, page, pageSize int) (*MessagePage, error) {
+	allMessages, err := a.agentManager.GetSessionMessages(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	total := len(allMessages)
+
+	// Default page size
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+
+	// Default to page 0
+	if page < 0 {
+		page = 0
+	}
+
+	// Calculate start and end indices
+	start := page * pageSize
+	if start >= total {
+		// Page is beyond available messages
+		return &MessagePage{
+			Messages: []agent.Message{},
+			Total:    total,
+			Page:     page,
+			PageSize: pageSize,
+			HasMore:  false,
+		}, nil
+	}
+
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+
+	messages := allMessages[start:end]
+	hasMore := end < total
+
+	return &MessagePage{
+		Messages: messages,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+		HasMore:  hasMore,
+	}, nil
 }
 
 // GetAgentTasks returns tasks for a session
@@ -306,6 +374,86 @@ func (a *App) UpdateMCPServer(server mcp.Server) error {
 // GetMCPPresets returns preset MCP servers
 func (a *App) GetMCPPresets() []mcp.Server {
 	return mcp.GetPresetServers()
+}
+
+// =============================================================================
+// Config Getter Implementation (for agent.ConfigGetter interface)
+// =============================================================================
+
+// GetMaxMessagesPerSession returns the max messages per session setting
+func (a *App) GetMaxMessagesPerSession() int {
+	prefs := a.config.GetPreferences()
+	if prefs.MaxMessagesPerSession <= 0 {
+		return 1000 // Default
+	}
+	return prefs.MaxMessagesPerSession
+}
+
+// GetArchiveOldMessages returns the archive old messages setting
+func (a *App) GetArchiveOldMessages() bool {
+	return a.config.GetPreferences().ArchiveOldMessages
+}
+
+// GetMaxSessionAgeDays returns the max session age in days
+func (a *App) GetMaxSessionAgeDays() int {
+	prefs := a.config.GetPreferences()
+	if prefs.MaxSessionAgeDays <= 0 {
+		return 30 // Default
+	}
+	return prefs.MaxSessionAgeDays
+}
+
+// GetMaxTotalSessions returns the max total sessions setting
+func (a *App) GetMaxTotalSessions() int {
+	prefs := a.config.GetPreferences()
+	if prefs.MaxTotalSessions <= 0 {
+		return 100 // Default
+	}
+	return prefs.MaxTotalSessions
+}
+
+// GetAutoCleanupSessions returns the auto cleanup sessions setting
+func (a *App) GetAutoCleanupSessions() bool {
+	return a.config.GetPreferences().AutoCleanupSessions
+}
+
+// GetMaxAgentsPerSession returns the max agents per session setting
+func (a *App) GetMaxAgentsPerSession() int {
+	prefs := a.config.GetPreferences()
+	if prefs.MaxAgentsPerSession <= 0 {
+		return 20 // Default
+	}
+	return prefs.MaxAgentsPerSession
+}
+
+// GetKeepCompletedAgents returns the keep completed agents setting
+func (a *App) GetKeepCompletedAgents() bool {
+	return a.config.GetPreferences().KeepCompletedAgents
+}
+
+// =============================================================================
+// Session Cleanup Methods
+// =============================================================================
+
+// CleanupOldSessions manually triggers session cleanup
+func (a *App) CleanupOldSessions() (int, error) {
+	maxAgeDays := a.GetMaxSessionAgeDays()
+	maxTotal := a.GetMaxTotalSessions()
+	return agent.CleanupOldSessions(maxAgeDays, maxTotal)
+}
+
+// GetSessionStats returns statistics about all sessions
+func (a *App) GetSessionStats() (map[string]interface{}, error) {
+	stats, err := agent.GetSessionStats()
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"total":      stats.Total,
+		"oldestDate": stats.OldestDate.Format("2006-01-02T15:04:05Z07:00"),
+		"newestDate": stats.NewestDate.Format("2006-01-02T15:04:05Z07:00"),
+	}, nil
 }
 
 // =============================================================================

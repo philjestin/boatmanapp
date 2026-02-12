@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { User, Bot, Wrench, AlertCircle } from 'lucide-react';
@@ -14,7 +15,7 @@ function getLanguageFromClassName(className?: string): string {
   return match ? match[1] : 'text';
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
   const isToolUse = message.metadata?.toolUse;
@@ -160,4 +161,4 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       </div>
     </div>
   );
-}
+});

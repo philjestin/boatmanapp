@@ -33,10 +33,12 @@ type Message struct {
 
 // AgentInfo tracks which agent generated the message
 type AgentInfo struct {
-	AgentID       string `json:"agentId"`
-	AgentType     string `json:"agentType"` // "main", "task", "explore", etc.
-	ParentAgentID string `json:"parentAgentId,omitempty"`
-	Description   string `json:"description,omitempty"`
+	AgentID       string    `json:"agentId"`
+	AgentType     string    `json:"agentType"` // "main", "task", "explore", etc.
+	ParentAgentID string    `json:"parentAgentId,omitempty"`
+	Description   string    `json:"description,omitempty"`
+	Status        string    `json:"status,omitempty"`        // "active" or "completed"
+	CompletedAt   time.Time `json:"completedAt,omitempty"`
 }
 
 // MessageMetadata contains additional message information
@@ -96,6 +98,14 @@ type Session struct {
 	conversationID string
 	currentAgentID string // Tracks which agent is currently active
 	agents         map[string]*AgentInfo // All known agents in this session
+
+	// Message trimming settings
+	maxMessages int
+	archive     bool
+
+	// Agent cleanup settings
+	maxAgents      int
+	keepCompleted  bool
 }
 
 // NewSession creates a new agent session
@@ -103,6 +113,7 @@ func NewSession(id, projectPath string) *Session {
 	mainAgent := &AgentInfo{
 		AgentID:   "main",
 		AgentType: "main",
+		Status:    "active",
 	}
 
 	agents := make(map[string]*AgentInfo)
@@ -140,6 +151,22 @@ func (s *Session) SetStatusHandler(handler func(SessionStatus)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onStatus = handler
+}
+
+// SetTrimSettings configures message trimming behavior
+func (s *Session) SetTrimSettings(maxMessages int, archive bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.maxMessages = maxMessages
+	s.archive = archive
+}
+
+// SetAgentCleanupSettings configures agent cleanup behavior
+func (s *Session) SetAgentCleanupSettings(maxAgents int, keepCompleted bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.maxAgents = maxAgents
+	s.keepCompleted = keepCompleted
 }
 
 // Start initializes the session (no persistent process needed now)
@@ -191,6 +218,14 @@ func (s *Session) SendMessage(content string, authConfig AuthConfig) error {
 
 	s.Messages = append(s.Messages, msg)
 	s.UpdatedAt = time.Now()
+
+	// Trim messages if needed
+	_ = s.TrimMessagesIfNeeded(s.maxMessages, s.archive)
+
+	// Cleanup agents periodically (every 10 messages)
+	if len(s.Messages)%10 == 0 && s.maxAgents > 0 {
+		s.CleanupCompletedAgents(s.maxAgents, s.keepCompleted)
+	}
 
 	// Store handler references to call after releasing lock
 	messageHandler := s.onMessage
@@ -581,6 +616,9 @@ func (s *Session) addAssistantMessage(content string) {
 	s.Messages = append(s.Messages, msg)
 	s.UpdatedAt = time.Now()
 
+	// Trim messages if needed
+	_ = s.TrimMessagesIfNeeded(s.maxMessages, s.archive)
+
 	if s.onMessage != nil {
 		s.onMessage(msg)
 	}
@@ -606,6 +644,9 @@ func (s *Session) addSystemMessage(content string) {
 
 	s.Messages = append(s.Messages, msg)
 	s.UpdatedAt = time.Now()
+
+	// Trim messages if needed
+	_ = s.TrimMessagesIfNeeded(s.maxMessages, s.archive)
 
 	if s.onMessage != nil {
 		s.onMessage(msg)
@@ -655,6 +696,11 @@ func (s *Session) handleToolUse(event map[string]any) {
 	}
 
 	s.Messages = append(s.Messages, msg)
+	s.UpdatedAt = time.Now()
+
+	// Trim messages if needed
+	_ = s.TrimMessagesIfNeeded(s.maxMessages, s.archive)
+
 	if s.onMessage != nil {
 		s.onMessage(msg)
 	}
@@ -771,6 +817,11 @@ func (s *Session) handleToolResult(event map[string]any) {
 	}
 
 	s.Messages = append(s.Messages, msg)
+	s.UpdatedAt = time.Now()
+
+	// Trim messages if needed
+	_ = s.TrimMessagesIfNeeded(s.maxMessages, s.archive)
+
 	if s.onMessage != nil {
 		s.onMessage(msg)
 	}
@@ -794,6 +845,7 @@ func (s *Session) handleTaskSpawn(input any) {
 		AgentType:     subagentType,
 		ParentAgentID: s.currentAgentID,
 		Description:   description,
+		Status:        "active",
 	}
 }
 
@@ -902,6 +954,11 @@ func (s *Session) handleUsageInfo(usage map[string]any, isFinal bool) {
 	if isFinal && (inputTokens > 0 || outputTokens > 0) {
 		fmt.Printf("[handleUsageInfo] Adding usage message to session\n")
 		s.Messages = append(s.Messages, msg)
+		s.UpdatedAt = time.Now()
+
+		// Trim messages if needed
+		_ = s.TrimMessagesIfNeeded(s.maxMessages, s.archive)
+
 		if s.onMessage != nil {
 			s.onMessage(msg)
 		}
@@ -913,5 +970,90 @@ func (s *Session) setStatus(status SessionStatus) {
 	s.UpdatedAt = time.Now()
 	if s.onStatus != nil {
 		s.onStatus(status)
+	}
+}
+
+// TrimMessagesIfNeeded limits message history and optionally archives overflow
+// Note: This method expects the caller to hold s.mu lock
+func (s *Session) TrimMessagesIfNeeded(maxMessages int, archive bool) error {
+	if maxMessages <= 0 || len(s.Messages) <= maxMessages {
+		return nil
+	}
+
+	// Calculate how many messages to remove
+	overflow := len(s.Messages) - maxMessages
+	messagesToArchive := s.Messages[:overflow]
+	s.Messages = s.Messages[overflow:]
+
+	// Archive if enabled
+	if archive && len(messagesToArchive) > 0 {
+		if err := ArchiveMessages(s.ID, messagesToArchive); err != nil {
+			// Log error but don't fail - we still trimmed the messages
+			fmt.Printf("Warning: failed to archive messages: %v\n", err)
+		}
+	}
+
+	s.UpdatedAt = time.Now()
+	return nil
+}
+
+// MarkAgentCompleted marks an agent as completed
+func (s *Session) MarkAgentCompleted(agentID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if agent, ok := s.agents[agentID]; ok {
+		agent.Status = "completed"
+		agent.CompletedAt = time.Now()
+	}
+}
+
+// CleanupCompletedAgents removes old completed agents, keeping max N agents
+// Note: This method expects the caller to hold s.mu lock
+func (s *Session) CleanupCompletedAgents(maxAgents int, keepCompleted bool) {
+	if maxAgents <= 0 || len(s.agents) <= maxAgents {
+		return
+	}
+
+	// Don't delete if keepCompleted is true
+	if keepCompleted {
+		return
+	}
+
+	// Collect completed agents with their completion times
+	type completedAgent struct {
+		id          string
+		completedAt time.Time
+	}
+	var completed []completedAgent
+
+	for agentID, agent := range s.agents {
+		// Never delete the main agent
+		if agentID == "main" {
+			continue
+		}
+
+		if agent.Status == "completed" {
+			completed = append(completed, completedAgent{
+				id:          agentID,
+				completedAt: agent.CompletedAt,
+			})
+		}
+	}
+
+	// Sort by completion time (oldest first)
+	for i := 0; i < len(completed); i++ {
+		for j := i + 1; j < len(completed); j++ {
+			if completed[j].completedAt.Before(completed[i].completedAt) {
+				completed[i], completed[j] = completed[j], completed[i]
+			}
+		}
+	}
+
+	// Delete oldest completed agents until we're under the limit
+	agentsToDelete := len(s.agents) - maxAgents
+	for i := 0; i < len(completed) && agentsToDelete > 0; i++ {
+		delete(s.agents, completed[i].id)
+		agentsToDelete--
 	}
 }

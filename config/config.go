@@ -53,6 +53,15 @@ type UserPreferences struct {
 	NotificationsEnabled bool         `json:"notificationsEnabled"`
 	MCPServers           []MCPServer  `json:"mcpServers"`
 	OnboardingCompleted  bool         `json:"onboardingCompleted"`
+
+	// Memory management settings
+	MaxMessagesPerSession int  `json:"maxMessagesPerSession"`
+	ArchiveOldMessages    bool `json:"archiveOldMessages"`
+	MaxSessionAgeDays     int  `json:"maxSessionAgeDays"`
+	MaxTotalSessions      int  `json:"maxTotalSessions"`
+	AutoCleanupSessions   bool `json:"autoCleanupSessions"`
+	MaxAgentsPerSession   int  `json:"maxAgentsPerSession"`
+	KeepCompletedAgents   bool `json:"keepCompletedAgents"`
 }
 
 // ProjectPreferences stores project-specific overrides
@@ -93,6 +102,15 @@ func NewConfig() (*Config, error) {
 			NotificationsEnabled: true,
 			MCPServers:           []MCPServer{},
 			OnboardingCompleted:  false,
+
+			// Memory management defaults
+			MaxMessagesPerSession: 1000,
+			ArchiveOldMessages:    true,
+			MaxSessionAgeDays:     30,
+			MaxTotalSessions:      100,
+			AutoCleanupSessions:   true,
+			MaxAgentsPerSession:   20,
+			KeepCompletedAgents:   false,
 		},
 		projects: make(map[string]ProjectPreferences),
 	}

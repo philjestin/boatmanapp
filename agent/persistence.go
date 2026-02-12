@@ -200,3 +200,209 @@ func DeleteSessionFile(sessionID string) error {
 func parseTimestamp(s string) (time.Time, error) {
 	return time.Parse("2006-01-02T15:04:05Z07:00", s)
 }
+
+// GetArchivesDir returns the directory where archived messages are stored
+func GetArchivesDir() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	archivesDir := filepath.Join(homeDir, ".boatman", "sessions", "archives")
+
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(archivesDir, 0755); err != nil {
+		return "", err
+	}
+
+	return archivesDir, nil
+}
+
+// ArchiveMessages appends messages to an archive file for a session
+func ArchiveMessages(sessionID string, messages []Message) error {
+	if len(messages) == 0 {
+		return nil
+	}
+
+	archivesDir, err := GetArchivesDir()
+	if err != nil {
+		return fmt.Errorf("failed to get archives directory: %w", err)
+	}
+
+	filename := filepath.Join(archivesDir, sessionID+".json")
+
+	// Load existing archive if it exists
+	var existingMessages []Message
+	if data, err := os.ReadFile(filename); err == nil {
+		if err := json.Unmarshal(data, &existingMessages); err != nil {
+			return fmt.Errorf("failed to unmarshal existing archive: %w", err)
+		}
+	}
+
+	// Append new messages
+	allMessages := append(existingMessages, messages...)
+
+	// Write back to file
+	jsonData, err := json.MarshalIndent(allMessages, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal archive: %w", err)
+	}
+
+	if err := os.WriteFile(filename, jsonData, 0644); err != nil {
+		return fmt.Errorf("failed to write archive file: %w", err)
+	}
+
+	return nil
+}
+
+// GetArchivedMessageCount returns the number of archived messages for a session
+func GetArchivedMessageCount(sessionID string) (int, error) {
+	archivesDir, err := GetArchivesDir()
+	if err != nil {
+		return 0, err
+	}
+
+	filename := filepath.Join(archivesDir, sessionID+".json")
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("failed to read archive file: %w", err)
+	}
+
+	var messages []Message
+	if err := json.Unmarshal(data, &messages); err != nil {
+		return 0, fmt.Errorf("failed to unmarshal archive: %w", err)
+	}
+
+	return len(messages), nil
+}
+
+// DeleteArchiveFile removes an archive file from disk
+func DeleteArchiveFile(sessionID string) error {
+	archivesDir, err := GetArchivesDir()
+	if err != nil {
+		return fmt.Errorf("failed to get archives directory: %w", err)
+	}
+
+	filename := filepath.Join(archivesDir, sessionID+".json")
+	if err := os.Remove(filename); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to delete archive file: %w", err)
+	}
+
+	return nil
+}
+
+// SessionStats contains statistics about all sessions
+type SessionStats struct {
+	Total       int       `json:"total"`
+	OldestDate  time.Time `json:"oldestDate"`
+	NewestDate  time.Time `json:"newestDate"`
+}
+
+// GetSessionStats returns statistics about all sessions
+func GetSessionStats() (*SessionStats, error) {
+	sessions, err := LoadAllSessions()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(sessions) == 0 {
+		return &SessionStats{
+			Total: 0,
+		}, nil
+	}
+
+	stats := &SessionStats{
+		Total:      len(sessions),
+		OldestDate: sessions[0].UpdatedAt,
+		NewestDate: sessions[0].UpdatedAt,
+	}
+
+	for _, session := range sessions {
+		if session.UpdatedAt.Before(stats.OldestDate) {
+			stats.OldestDate = session.UpdatedAt
+		}
+		if session.UpdatedAt.After(stats.NewestDate) {
+			stats.NewestDate = session.UpdatedAt
+		}
+	}
+
+	return stats, nil
+}
+
+// CleanupOldSessions deletes sessions based on age and count limits
+func CleanupOldSessions(maxAgeDays, maxTotal int) (int, error) {
+	sessions, err := LoadAllSessions()
+	if err != nil {
+		return 0, err
+	}
+
+	if len(sessions) == 0 {
+		return 0, nil
+	}
+
+	var toDelete []string
+	now := time.Now()
+	ageCutoff := now.AddDate(0, 0, -maxAgeDays)
+
+	// First, mark sessions that are too old
+	for _, session := range sessions {
+		if session.UpdatedAt.Before(ageCutoff) {
+			toDelete = append(toDelete, session.ID)
+		}
+	}
+
+	// Sort remaining sessions by UpdatedAt (newest first)
+	type sessionWithTime struct {
+		id        string
+		updatedAt time.Time
+	}
+	var remaining []sessionWithTime
+	for _, session := range sessions {
+		// Skip sessions already marked for deletion
+		shouldSkip := false
+		for _, id := range toDelete {
+			if id == session.ID {
+				shouldSkip = true
+				break
+			}
+		}
+		if !shouldSkip {
+			remaining = append(remaining, sessionWithTime{
+				id:        session.ID,
+				updatedAt: session.UpdatedAt,
+			})
+		}
+	}
+
+	// Sort by updatedAt descending (newest first)
+	for i := 0; i < len(remaining); i++ {
+		for j := i + 1; j < len(remaining); j++ {
+			if remaining[j].updatedAt.After(remaining[i].updatedAt) {
+				remaining[i], remaining[j] = remaining[j], remaining[i]
+			}
+		}
+	}
+
+	// Mark oldest sessions for deletion if we exceed maxTotal
+	if len(remaining) > maxTotal {
+		for i := maxTotal; i < len(remaining); i++ {
+			toDelete = append(toDelete, remaining[i].id)
+		}
+	}
+
+	// Delete all marked sessions and their archives
+	deletedCount := 0
+	for _, sessionID := range toDelete {
+		if err := DeleteSessionFile(sessionID); err != nil {
+			fmt.Printf("Warning: failed to delete session %s: %v\n", sessionID, err)
+			continue
+		}
+		// Also delete archive if it exists
+		_ = DeleteArchiveFile(sessionID)
+		deletedCount++
+	}
+
+	return deletedCount, nil
+}
