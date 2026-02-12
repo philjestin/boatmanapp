@@ -36,22 +36,27 @@ export function useAgent() {
   // Subscribe to agent events
   useEffect(() => {
     const messageHandler = (data: { sessionId: string; message: Message }) => {
+      console.log('[FRONTEND] Received message event:', data);
       addMessage(data.sessionId, data.message);
     };
 
     const taskHandler = (data: { sessionId: string; task: Task }) => {
+      console.log('[FRONTEND] Received task event:', data);
       updateTask(data.sessionId, data.task);
     };
 
     const statusHandler = (data: { sessionId: string; status: SessionStatus }) => {
+      console.log('[FRONTEND] Received status event:', data);
       updateSessionStatus(data.sessionId, data.status);
     };
 
+    console.log('[FRONTEND] Subscribing to agent events...');
     EventsOn('agent:message', messageHandler);
     EventsOn('agent:task', taskHandler);
     EventsOn('agent:status', statusHandler);
 
     return () => {
+      console.log('[FRONTEND] Unsubscribing from agent events...');
       EventsOff('agent:message');
       EventsOff('agent:task');
       EventsOff('agent:status');

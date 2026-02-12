@@ -1,5 +1,23 @@
 export namespace agent {
 	
+	export class AgentInfo {
+	    agentId: string;
+	    agentType: string;
+	    parentAgentId?: string;
+	    description?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AgentInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.agentId = source["agentId"];
+	        this.agentType = source["agentType"];
+	        this.parentAgentId = source["parentAgentId"];
+	        this.description = source["description"];
+	    }
+	}
 	export class CostInfo {
 	    inputTokens: number;
 	    outputTokens: number;
@@ -52,6 +70,7 @@ export namespace agent {
 	    toolUse?: ToolUse;
 	    toolResult?: ToolResult;
 	    costInfo?: CostInfo;
+	    agent?: AgentInfo;
 	
 	    static createFrom(source: any = {}) {
 	        return new MessageMetadata(source);
@@ -62,6 +81,7 @@ export namespace agent {
 	        this.toolUse = this.convertValues(source["toolUse"], ToolUse);
 	        this.toolResult = this.convertValues(source["toolResult"], ToolResult);
 	        this.costInfo = this.convertValues(source["costInfo"], CostInfo);
+	        this.agent = this.convertValues(source["agent"], AgentInfo);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -168,6 +188,9 @@ export namespace config {
 	}
 	export class UserPreferences {
 	    apiKey: string;
+	    authMethod: string;
+	    gcpProjectId?: string;
+	    gcpRegion?: string;
 	    approvalMode: string;
 	    defaultModel: string;
 	    theme: string;
@@ -182,6 +205,9 @@ export namespace config {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.apiKey = source["apiKey"];
+	        this.authMethod = source["authMethod"];
+	        this.gcpProjectId = source["gcpProjectId"];
+	        this.gcpRegion = source["gcpRegion"];
 	        this.approvalMode = source["approvalMode"];
 	        this.defaultModel = source["defaultModel"];
 	        this.theme = source["theme"];

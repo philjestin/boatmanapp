@@ -19,6 +19,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const isSystem = message.role === 'system';
   const isToolUse = message.metadata?.toolUse;
   const isToolResult = message.metadata?.toolResult;
+  const hasCostInfo = message.metadata?.costInfo;
 
   const getIcon = () => {
     if (isUser) return <User className="w-4 h-4" />;
@@ -32,7 +33,10 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       return 'bg-blue-500/10 border-blue-500/20';
     }
     if (isSystem || isToolResult) {
-      return 'bg-slate-800/50 border-slate-700';
+      return 'bg-slate-800/30 border-slate-700/50 text-sm';
+    }
+    if (isToolUse) {
+      return 'bg-amber-500/5 border-amber-500/20 text-sm';
     }
     return 'bg-slate-800 border-slate-700';
   };
@@ -135,6 +139,21 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 }}
                 children={message.content}
               />
+            </div>
+          )}
+          {hasCostInfo && message.metadata?.costInfo && (
+            <div className="mt-2 pt-2 border-t border-slate-700 text-xs text-slate-500">
+              <div className="flex items-center gap-4">
+                <span>
+                  Input: {message.metadata.costInfo.inputTokens.toLocaleString()} tokens
+                </span>
+                <span>
+                  Output: {message.metadata.costInfo.outputTokens.toLocaleString()} tokens
+                </span>
+                <span className="text-green-400">
+                  ≈${message.metadata.costInfo.totalCost.toFixed(4)}
+                </span>
+              </div>
             </div>
           )}
         </div>

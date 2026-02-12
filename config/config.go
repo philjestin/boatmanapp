@@ -16,6 +16,14 @@ const (
 	ApprovalModeFullAuto ApprovalMode = "full-auto"
 )
 
+// AuthMethod defines how to authenticate with Claude
+type AuthMethod string
+
+const (
+	AuthMethodAnthropicAPI AuthMethod = "anthropic-api"
+	AuthMethodGoogleCloud  AuthMethod = "google-cloud"
+)
+
 // Theme defines the UI theme
 type Theme string
 
@@ -36,6 +44,9 @@ type MCPServer struct {
 // UserPreferences stores user configuration
 type UserPreferences struct {
 	APIKey               string       `json:"apiKey"`
+	AuthMethod           AuthMethod   `json:"authMethod"`
+	GCPProjectID         string       `json:"gcpProjectId,omitempty"`
+	GCPRegion            string       `json:"gcpRegion,omitempty"`
 	ApprovalMode         ApprovalMode `json:"approvalMode"`
 	DefaultModel         string       `json:"defaultModel"`
 	Theme                Theme        `json:"theme"`
@@ -74,8 +85,10 @@ func NewConfig() (*Config, error) {
 	c := &Config{
 		configPath: filepath.Join(configDir, "config.json"),
 		preferences: UserPreferences{
+			AuthMethod:           AuthMethodAnthropicAPI,
+			GCPRegion:            "us-east5",
 			ApprovalMode:         ApprovalModeSuggest,
-			DefaultModel:         "claude-sonnet-4-20250514",
+			DefaultModel:         "sonnet",
 			Theme:                ThemeDark,
 			NotificationsEnabled: true,
 			MCPServers:           []MCPServer{},
@@ -189,6 +202,20 @@ func (c *Config) GetAPIKey() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.preferences.APIKey
+}
+
+// GetAuthMethod returns the configured authentication method
+func (c *Config) GetAuthMethod() AuthMethod {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.preferences.AuthMethod
+}
+
+// GetGCPConfig returns Google Cloud configuration
+func (c *Config) GetGCPConfig() (projectID, region string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.preferences.GCPProjectID, c.preferences.GCPRegion
 }
 
 // GetMCPServers returns configured MCP servers

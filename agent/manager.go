@@ -9,20 +9,29 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// AuthConfig holds authentication configuration
+type AuthConfig struct {
+	Method       string // "anthropic-api" or "google-cloud"
+	APIKey       string
+	GCPProjectID string
+	GCPRegion    string
+	ApprovalMode string // "suggest", "auto-edit", "full-auto"
+}
+
 // Manager handles multiple agent sessions
 type Manager struct {
-	ctx          context.Context
-	sessions     map[string]*Session
-	mu           sync.RWMutex
-	defaultModel string
-	apiKeyGetter func() string
+	ctx             context.Context
+	sessions        map[string]*Session
+	mu              sync.RWMutex
+	defaultModel    string
+	authConfigGetter func() AuthConfig
 }
 
 // NewManager creates a new agent manager
 func NewManager() *Manager {
 	return &Manager{
 		sessions:     make(map[string]*Session),
-		defaultModel: "claude-sonnet-4-20250514",
+		defaultModel: "sonnet",
 	}
 }
 
@@ -38,11 +47,23 @@ func (m *Manager) SetDefaultModel(model string) {
 	m.defaultModel = model
 }
 
-// SetAPIKeyGetter sets the function to retrieve the API key
+// SetAuthConfigGetter sets the function to retrieve auth configuration
+func (m *Manager) SetAuthConfigGetter(getter func() AuthConfig) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.authConfigGetter = getter
+}
+
+// SetAPIKeyGetter sets the function to retrieve the API key (deprecated, use SetAuthConfigGetter)
 func (m *Manager) SetAPIKeyGetter(getter func() string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.apiKeyGetter = getter
+	m.authConfigGetter = func() AuthConfig {
+		return AuthConfig{
+			Method: "anthropic-api",
+			APIKey: getter(),
+		}
+	}
 }
 
 // CreateSession creates a new agent session for a project
@@ -154,15 +175,15 @@ func (m *Manager) SendMessage(sessionID, content string) error {
 		return err
 	}
 
-	// Get API key
-	var apiKey string
+	// Get auth config
+	var authConfig AuthConfig
 	m.mu.RLock()
-	if m.apiKeyGetter != nil {
-		apiKey = m.apiKeyGetter()
+	if m.authConfigGetter != nil {
+		authConfig = m.authConfigGetter()
 	}
 	m.mu.RUnlock()
 
-	return session.SendMessage(content, apiKey)
+	return session.SendMessage(content, authConfig)
 }
 
 // ApproveAction approves a pending action

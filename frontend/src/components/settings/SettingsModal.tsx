@@ -125,33 +125,95 @@ function GeneralSettings({
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-medium text-slate-100 mb-2">API Key</h3>
+        <h3 className="text-sm font-medium text-slate-100 mb-2">Authentication Method</h3>
         <p className="text-xs text-slate-400 mb-3">
-          Your Anthropic API key for Claude access
+          Choose how to authenticate with Claude
         </p>
-        <div className="relative">
-          <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <input
-            type={showApiKey ? 'text' : 'password'}
-            value={preferences.apiKey || ''}
-            onChange={(e) => onChange({ ...preferences, apiKey: e.target.value })}
-            placeholder="sk-ant-..."
-            className="w-full pl-10 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
-          />
+        <div className="flex items-center gap-3 mb-4">
           <button
-            type="button"
-            onClick={() => setShowApiKey(!showApiKey)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+            onClick={() => onChange({ ...preferences, authMethod: 'anthropic-api' })}
+            className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
+              preferences.authMethod === 'anthropic-api'
+                ? 'border-blue-500 bg-blue-500/10'
+                : 'border-slate-700 hover:border-slate-600'
+            }`}
           >
-            {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            <Key className="w-4 h-4" />
+            <span className="text-sm">Anthropic API</span>
+          </button>
+          <button
+            onClick={() => onChange({ ...preferences, authMethod: 'google-cloud' })}
+            className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors ${
+              preferences.authMethod === 'google-cloud'
+                ? 'border-blue-500 bg-blue-500/10'
+                : 'border-slate-700 hover:border-slate-600'
+            }`}
+          >
+            <Server className="w-4 h-4" />
+            <span className="text-sm">Google Cloud</span>
           </button>
         </div>
-        <p className="text-xs text-slate-500 mt-2">
-          Get your API key from{' '}
-          <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
-            console.anthropic.com
-          </a>
-        </p>
+
+        {preferences.authMethod === 'anthropic-api' ? (
+          <div>
+            <h3 className="text-sm font-medium text-slate-100 mb-2">API Key</h3>
+            <p className="text-xs text-slate-400 mb-3">
+              Your Anthropic API key for Claude access
+            </p>
+            <div className="relative">
+              <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input
+                type={showApiKey ? 'text' : 'password'}
+                value={preferences.apiKey || ''}
+                onChange={(e) => onChange({ ...preferences, apiKey: e.target.value })}
+                placeholder="sk-ant-..."
+                className="w-full pl-10 pr-10 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+              >
+                {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Get your API key from{' '}
+              <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                console.anthropic.com
+              </a>
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-medium text-slate-100 mb-2">GCP Project ID</h3>
+              <input
+                type="text"
+                value={preferences.gcpProjectId || ''}
+                onChange={(e) => onChange({ ...preferences, gcpProjectId: e.target.value })}
+                placeholder="my-project-id"
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-100 mb-2">GCP Region</h3>
+              <select
+                value={preferences.gcpRegion || 'us-east5'}
+                onChange={(e) => onChange({ ...preferences, gcpRegion: e.target.value })}
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+              >
+                <option value="us-east5">us-east5</option>
+                <option value="us-central1">us-central1</option>
+                <option value="europe-west1">europe-west1</option>
+                <option value="asia-southeast1">asia-southeast1</option>
+              </select>
+            </div>
+            <p className="text-xs text-slate-500">
+              Authenticate using: <code className="text-slate-400">gcloud auth application-default login</code>
+            </p>
+          </div>
+        )}
       </div>
 
       <div>
@@ -218,8 +280,10 @@ function GeneralSettings({
           }
           className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-blue-500"
         >
-          <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-          <option value="claude-opus-4-20250514">Claude Opus 4</option>
+          <option value="sonnet">Claude Sonnet 4</option>
+          <option value="opus">Claude Opus 4</option>
+          <option value="claude-opus-4-6">Claude Opus 4.6 (Latest)</option>
+          <option value="haiku">Claude Haiku 4</option>
           <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
         </select>
       </div>

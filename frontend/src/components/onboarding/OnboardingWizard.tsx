@@ -15,8 +15,9 @@ export function OnboardingWizard({ isOpen, onComplete }: OnboardingWizardProps) 
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [preferences, setPreferences] = useState<UserPreferences>({
     apiKey: '',
+    authMethod: 'anthropic-api',
     approvalMode: 'suggest',
-    defaultModel: 'claude-sonnet-4-20250514',
+    defaultModel: 'sonnet',
     theme: 'dark',
     notificationsEnabled: true,
     mcpServers: [],

@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { InputArea } from './InputArea';
+import { AgentLogsPanel } from './AgentLogsPanel';
 import { Loader2 } from 'lucide-react';
 import type { Message, SessionStatus } from '../../types';
 
@@ -69,6 +70,9 @@ export function ChatView({ messages, status, onSendMessage, isLoading = false }:
           <span>{statusMessage}</span>
         </div>
       )}
+
+      {/* Agent Logs Panel */}
+      <AgentLogsPanel messages={messages} isActive={status === 'running'} />
 
       {/* Input */}
       <InputArea

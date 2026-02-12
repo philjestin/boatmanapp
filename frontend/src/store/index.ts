@@ -164,7 +164,8 @@ export const useStore = create<Store>()(
             'updateSessionStatus'
           ),
 
-        addMessage: (sessionId, message) =>
+        addMessage: (sessionId, message) => {
+          console.log('[STORE] addMessage called:', { sessionId, message });
           set(
             (state) => ({
               sessions: state.sessions.map((s) =>
@@ -175,7 +176,8 @@ export const useStore = create<Store>()(
             }),
             false,
             'addMessage'
-          ),
+          );
+        },
 
         setMessages: (sessionId, messages) =>
           set(

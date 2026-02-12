@@ -51,7 +51,17 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.agentManager.SetContext(ctx)
-	a.agentManager.SetAPIKeyGetter(a.config.GetAPIKey)
+	a.agentManager.SetAuthConfigGetter(func() agent.AuthConfig {
+		prefs := a.config.GetPreferences()
+		gcpProjectID, gcpRegion := a.config.GetGCPConfig()
+		return agent.AuthConfig{
+			Method:       string(prefs.AuthMethod),
+			APIKey:       prefs.APIKey,
+			GCPProjectID: gcpProjectID,
+			GCPRegion:    gcpRegion,
+			ApprovalMode: string(prefs.ApprovalMode),
+		}
+	})
 }
 
 // shutdown is called when the app is closing

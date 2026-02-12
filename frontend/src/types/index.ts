@@ -12,10 +12,18 @@ export interface Message {
   metadata?: MessageMetadata;
 }
 
+export interface AgentInfo {
+  agentId: string;
+  agentType: string; // "main", "task", "explore", etc.
+  parentAgentId?: string;
+  description?: string;
+}
+
 export interface MessageMetadata {
   toolUse?: ToolUse;
   toolResult?: ToolResult;
   costInfo?: CostInfo;
+  agent?: AgentInfo;
 }
 
 export interface ToolUse {
@@ -130,6 +138,7 @@ export interface SideBySideLine {
 
 export type ApprovalMode = 'suggest' | 'auto-edit' | 'full-auto';
 export type Theme = 'dark' | 'light';
+export type AuthMethod = 'anthropic-api' | 'google-cloud';
 
 export interface MCPServer {
   name: string;
@@ -142,6 +151,9 @@ export interface MCPServer {
 
 export interface UserPreferences {
   apiKey: string;
+  authMethod: AuthMethod;
+  gcpProjectId?: string;
+  gcpRegion?: string;
   approvalMode: ApprovalMode;
   defaultModel: string;
   theme: Theme;
