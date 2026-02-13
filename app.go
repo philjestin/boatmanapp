@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"boatman/agent"
 	"boatman/config"
@@ -113,6 +115,8 @@ type AgentSessionInfo struct {
 	ProjectPath string              `json:"projectPath"`
 	Status      agent.SessionStatus `json:"status"`
 	CreatedAt   string              `json:"createdAt"`
+	Tags        []string            `json:"tags,omitempty"`
+	IsFavorite  bool                `json:"isFavorite,omitempty"`
 }
 
 // CreateAgentSession creates a new agent session
@@ -238,6 +242,8 @@ func (a *App) ListAgentSessions() []AgentSessionInfo {
 			ProjectPath: s.ProjectPath,
 			Status:      s.Status,
 			CreatedAt:   s.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			Tags:        s.Tags,
+			IsFavorite:  s.IsFavorite,
 		}
 	}
 	return infos
@@ -454,6 +460,110 @@ func (a *App) GetSessionStats() (map[string]interface{}, error) {
 		"oldestDate": stats.OldestDate.Format("2006-01-02T15:04:05Z07:00"),
 		"newestDate": stats.NewestDate.Format("2006-01-02T15:04:05Z07:00"),
 	}, nil
+}
+
+// =============================================================================
+// Search and Organization Methods
+// =============================================================================
+
+// SearchSessionsRequest represents a search request
+type SearchSessionsRequest struct {
+	Query       string   `json:"query"`
+	Tags        []string `json:"tags"`
+	ProjectPath string   `json:"projectPath"`
+	IsFavorite  *bool    `json:"isFavorite"`
+	FromDate    string   `json:"fromDate"`
+	ToDate      string   `json:"toDate"`
+}
+
+// SearchSessionsResponse represents a search response
+type SearchSessionsResponse struct {
+	SessionID    string              `json:"sessionId"`
+	ProjectPath  string              `json:"projectPath"`
+	CreatedAt    string              `json:"createdAt"`
+	UpdatedAt    string              `json:"updatedAt"`
+	Tags         []string            `json:"tags"`
+	IsFavorite   bool                `json:"isFavorite"`
+	MessageCount int                 `json:"messageCount"`
+	Score        int                 `json:"score"`
+	MatchReasons []string            `json:"matchReasons"`
+	Status       agent.SessionStatus `json:"status"`
+}
+
+// SearchSessions searches sessions based on criteria
+func (a *App) SearchSessions(req SearchSessionsRequest) ([]SearchSessionsResponse, error) {
+	// Parse dates
+	var fromDate, toDate time.Time
+	var err error
+
+	if req.FromDate != "" {
+		fromDate, err = time.Parse("2006-01-02", req.FromDate)
+		if err != nil {
+			return nil, fmt.Errorf("invalid from date: %w", err)
+		}
+	}
+
+	if req.ToDate != "" {
+		toDate, err = time.Parse("2006-01-02", req.ToDate)
+		if err != nil {
+			return nil, fmt.Errorf("invalid to date: %w", err)
+		}
+	}
+
+	// Create filter
+	filter := agent.SearchFilter{
+		Query:       req.Query,
+		Tags:        req.Tags,
+		ProjectPath: req.ProjectPath,
+		IsFavorite:  req.IsFavorite,
+		FromDate:    fromDate,
+		ToDate:      toDate,
+	}
+
+	// Perform search
+	results, err := agent.SearchSessions(filter)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to response format
+	response := make([]SearchSessionsResponse, len(results))
+	for i, result := range results {
+		response[i] = SearchSessionsResponse{
+			SessionID:    result.Session.ID,
+			ProjectPath:  result.Session.ProjectPath,
+			CreatedAt:    result.Session.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:    result.Session.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			Tags:         result.Session.GetTags(),
+			IsFavorite:   result.Session.IsFavorite,
+			MessageCount: len(result.Session.Messages),
+			Score:        result.Score,
+			MatchReasons: result.MatchReason,
+			Status:       result.Session.Status,
+		}
+	}
+
+	return response, nil
+}
+
+// AddSessionTag adds a tag to a session
+func (a *App) AddSessionTag(sessionID, tag string) error {
+	return a.agentManager.AddTag(sessionID, tag)
+}
+
+// RemoveSessionTag removes a tag from a session
+func (a *App) RemoveSessionTag(sessionID, tag string) error {
+	return a.agentManager.RemoveTag(sessionID, tag)
+}
+
+// SetSessionFavorite sets the favorite status of a session
+func (a *App) SetSessionFavorite(sessionID string, favorite bool) error {
+	return a.agentManager.SetFavorite(sessionID, favorite)
+}
+
+// GetAllTags returns all unique tags across all sessions
+func (a *App) GetAllTags() ([]string, error) {
+	return agent.GetAllTags()
 }
 
 // =============================================================================

@@ -88,6 +88,8 @@ export function useAgent() {
             createdAt: info.createdAt,
             messages: [],
             tasks: [],
+            tags: info.tags || [],
+            isFavorite: info.isFavorite || false,
           });
         });
       } catch (err) {
@@ -114,6 +116,8 @@ export function useAgent() {
         createdAt: info.createdAt,
         messages: [],
         tasks: [],
+        tags: info.tags || [],
+        isFavorite: info.isFavorite || false,
       };
 
       addSession(session);

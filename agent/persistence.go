@@ -22,10 +22,23 @@ type SessionData struct {
 	ConversationID string                `json:"conversationId"`
 	CurrentAgentID string                `json:"currentAgentId"`
 	Agents         map[string]*AgentInfo `json:"agents"`
+	Tags           []string              `json:"tags,omitempty"`
+	IsFavorite     bool                  `json:"isFavorite,omitempty"`
 }
+
+// SessionsDirGetter is a function type for getting sessions directory (for testing)
+type SessionsDirGetter func() (string, error)
+
+// defaultSessionsDirGetter is the default implementation
+var defaultSessionsDirGetter SessionsDirGetter = getSessionsDir
 
 // GetSessionsDir returns the directory where sessions are stored
 func GetSessionsDir() (string, error) {
+	return defaultSessionsDirGetter()
+}
+
+// getSessionsDir is the actual implementation
+func getSessionsDir() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
@@ -63,6 +76,8 @@ func SaveSession(session *Session) error {
 		ConversationID: session.conversationID,
 		CurrentAgentID: session.currentAgentID,
 		Agents:         session.agents,
+		Tags:           session.Tags,
+		IsFavorite:     session.IsFavorite,
 	}
 
 	// Marshal to JSON
@@ -109,6 +124,13 @@ func LoadSession(sessionID string) (*Session, error) {
 		conversationID: data.ConversationID,
 		currentAgentID: data.CurrentAgentID,
 		agents:         data.Agents,
+		Tags:           data.Tags,
+		IsFavorite:     data.IsFavorite,
+	}
+
+	// Initialize tags if nil
+	if session.Tags == nil {
+		session.Tags = []string{}
 	}
 
 	// Initialize agents map if nil

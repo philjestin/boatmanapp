@@ -6,12 +6,20 @@ export function AddMCPServer(arg1) {
   return window['go']['main']['App']['AddMCPServer'](arg1);
 }
 
+export function AddSessionTag(arg1, arg2) {
+  return window['go']['main']['App']['AddSessionTag'](arg1, arg2);
+}
+
 export function ApproveAgentAction(arg1, arg2) {
   return window['go']['main']['App']['ApproveAgentAction'](arg1, arg2);
 }
 
 export function CheckClaudeCLI() {
   return window['go']['main']['App']['CheckClaudeCLI']();
+}
+
+export function CleanupOldSessions() {
+  return window['go']['main']['App']['CleanupOldSessions']();
 }
 
 export function CompleteOnboarding() {
@@ -30,8 +38,24 @@ export function GetAgentMessages(arg1) {
   return window['go']['main']['App']['GetAgentMessages'](arg1);
 }
 
+export function GetAgentMessagesPaginated(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetAgentMessagesPaginated'](arg1, arg2, arg3);
+}
+
 export function GetAgentTasks(arg1) {
   return window['go']['main']['App']['GetAgentTasks'](arg1);
+}
+
+export function GetAllTags() {
+  return window['go']['main']['App']['GetAllTags']();
+}
+
+export function GetArchiveOldMessages() {
+  return window['go']['main']['App']['GetArchiveOldMessages']();
+}
+
+export function GetAutoCleanupSessions() {
+  return window['go']['main']['App']['GetAutoCleanupSessions']();
 }
 
 export function GetClaudeCLIVersion() {
@@ -46,12 +70,32 @@ export function GetGitStatus(arg1) {
   return window['go']['main']['App']['GetGitStatus'](arg1);
 }
 
+export function GetKeepCompletedAgents() {
+  return window['go']['main']['App']['GetKeepCompletedAgents']();
+}
+
 export function GetMCPPresets() {
   return window['go']['main']['App']['GetMCPPresets']();
 }
 
 export function GetMCPServers() {
   return window['go']['main']['App']['GetMCPServers']();
+}
+
+export function GetMaxAgentsPerSession() {
+  return window['go']['main']['App']['GetMaxAgentsPerSession']();
+}
+
+export function GetMaxMessagesPerSession() {
+  return window['go']['main']['App']['GetMaxMessagesPerSession']();
+}
+
+export function GetMaxSessionAgeDays() {
+  return window['go']['main']['App']['GetMaxSessionAgeDays']();
+}
+
+export function GetMaxTotalSessions() {
+  return window['go']['main']['App']['GetMaxTotalSessions']();
 }
 
 export function GetPreferences() {
@@ -64,6 +108,10 @@ export function GetProject(arg1) {
 
 export function GetRecentProjects(arg1) {
   return window['go']['main']['App']['GetRecentProjects'](arg1);
+}
+
+export function GetSessionStats() {
+  return window['go']['main']['App']['GetSessionStats']();
 }
 
 export function GetSideBySideDiff(arg1) {
@@ -106,6 +154,14 @@ export function RemoveProject(arg1) {
   return window['go']['main']['App']['RemoveProject'](arg1);
 }
 
+export function RemoveSessionTag(arg1, arg2) {
+  return window['go']['main']['App']['RemoveSessionTag'](arg1, arg2);
+}
+
+export function SearchSessions(arg1) {
+  return window['go']['main']['App']['SearchSessions'](arg1);
+}
+
 export function SelectFolder() {
   return window['go']['main']['App']['SelectFolder']();
 }
@@ -120,6 +176,10 @@ export function SendNotification(arg1, arg2) {
 
 export function SetPreferences(arg1) {
   return window['go']['main']['App']['SetPreferences'](arg1);
+}
+
+export function SetSessionFavorite(arg1, arg2) {
+  return window['go']['main']['App']['SetSessionFavorite'](arg1, arg2);
 }
 
 export function StartAgentSession(arg1) {

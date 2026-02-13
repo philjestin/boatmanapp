@@ -308,3 +308,33 @@ func (m *Manager) MarkAgentCompleted(sessionID, agentID string) error {
 	session.MarkAgentCompleted(agentID)
 	return nil
 }
+
+// AddTag adds a tag to a session
+func (m *Manager) AddTag(sessionID, tag string) error {
+	session, err := m.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	session.AddTag(tag)
+	return SaveSession(session)
+}
+
+// RemoveTag removes a tag from a session
+func (m *Manager) RemoveTag(sessionID, tag string) error {
+	session, err := m.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	session.RemoveTag(tag)
+	return SaveSession(session)
+}
+
+// SetFavorite sets the favorite status of a session
+func (m *Manager) SetFavorite(sessionID string, favorite bool) error {
+	session, err := m.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	session.SetFavorite(favorite)
+	return SaveSession(session)
+}

@@ -88,6 +88,8 @@ type Session struct {
 	CreatedAt   time.Time     `json:"createdAt"`
 	UpdatedAt   time.Time     `json:"updatedAt"`
 	Model       string        `json:"model"`
+	Tags        []string      `json:"tags,omitempty"`
+	IsFavorite  bool          `json:"isFavorite,omitempty"`
 
 	mu             sync.RWMutex
 	ctx            context.Context
@@ -104,8 +106,8 @@ type Session struct {
 	archive     bool
 
 	// Agent cleanup settings
-	maxAgents      int
-	keepCompleted  bool
+	maxAgents     int
+	keepCompleted bool
 }
 
 // NewSession creates a new agent session
@@ -129,6 +131,8 @@ func NewSession(id, projectPath string) *Session {
 		UpdatedAt:      time.Now(),
 		currentAgentID: "main",
 		agents:         agents,
+		Tags:           []string{},
+		IsFavorite:     false,
 	}
 }
 
@@ -1056,4 +1060,55 @@ func (s *Session) CleanupCompletedAgents(maxAgents int, keepCompleted bool) {
 		delete(s.agents, completed[i].id)
 		agentsToDelete--
 	}
+}
+
+// AddTag adds a tag to the session
+func (s *Session) AddTag(tag string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Check if tag already exists
+	for _, t := range s.Tags {
+		if strings.EqualFold(t, tag) {
+			return
+		}
+	}
+
+	s.Tags = append(s.Tags, tag)
+	s.UpdatedAt = time.Now()
+}
+
+// RemoveTag removes a tag from the session
+func (s *Session) RemoveTag(tag string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	filtered := make([]string, 0, len(s.Tags))
+	for _, t := range s.Tags {
+		if !strings.EqualFold(t, tag) {
+			filtered = append(filtered, t)
+		}
+	}
+
+	s.Tags = filtered
+	s.UpdatedAt = time.Now()
+}
+
+// SetFavorite sets the favorite status of the session
+func (s *Session) SetFavorite(favorite bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.IsFavorite = favorite
+	s.UpdatedAt = time.Now()
+}
+
+// GetTags returns a copy of the session's tags
+func (s *Session) GetTags() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	tags := make([]string, len(s.Tags))
+	copy(tags, s.Tags)
+	return tags
 }

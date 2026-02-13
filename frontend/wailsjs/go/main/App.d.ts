@@ -9,9 +9,13 @@ import {diff} from '../models';
 
 export function AddMCPServer(arg1:mcp.Server):Promise<void>;
 
+export function AddSessionTag(arg1:string,arg2:string):Promise<void>;
+
 export function ApproveAgentAction(arg1:string,arg2:string):Promise<void>;
 
 export function CheckClaudeCLI():Promise<boolean>;
+
+export function CleanupOldSessions():Promise<number>;
 
 export function CompleteOnboarding():Promise<void>;
 
@@ -21,7 +25,15 @@ export function DeleteAgentSession(arg1:string):Promise<void>;
 
 export function GetAgentMessages(arg1:string):Promise<Array<agent.Message>>;
 
+export function GetAgentMessagesPaginated(arg1:string,arg2:number,arg3:number):Promise<main.MessagePage>;
+
 export function GetAgentTasks(arg1:string):Promise<Array<agent.Task>>;
+
+export function GetAllTags():Promise<Array<string>>;
+
+export function GetArchiveOldMessages():Promise<boolean>;
+
+export function GetAutoCleanupSessions():Promise<boolean>;
 
 export function GetClaudeCLIVersion():Promise<string>;
 
@@ -29,15 +41,27 @@ export function GetGitDiff(arg1:string,arg2:string):Promise<string>;
 
 export function GetGitStatus(arg1:string):Promise<main.GitStatus>;
 
+export function GetKeepCompletedAgents():Promise<boolean>;
+
 export function GetMCPPresets():Promise<Array<mcp.Server>>;
 
 export function GetMCPServers():Promise<Array<mcp.Server>>;
+
+export function GetMaxAgentsPerSession():Promise<number>;
+
+export function GetMaxMessagesPerSession():Promise<number>;
+
+export function GetMaxSessionAgeDays():Promise<number>;
+
+export function GetMaxTotalSessions():Promise<number>;
 
 export function GetPreferences():Promise<config.UserPreferences>;
 
 export function GetProject(arg1:string):Promise<project.Project>;
 
 export function GetRecentProjects(arg1:number):Promise<Array<project.Project>>;
+
+export function GetSessionStats():Promise<Record<string, any>>;
 
 export function GetSideBySideDiff(arg1:diff.FileDiff):Promise<Array<diff.SideBySideLine>>;
 
@@ -59,6 +83,10 @@ export function RemoveMCPServer(arg1:string):Promise<void>;
 
 export function RemoveProject(arg1:string):Promise<void>;
 
+export function RemoveSessionTag(arg1:string,arg2:string):Promise<void>;
+
+export function SearchSessions(arg1:main.SearchSessionsRequest):Promise<Array<main.SearchSessionsResponse>>;
+
 export function SelectFolder():Promise<string>;
 
 export function SendAgentMessage(arg1:string,arg2:string):Promise<void>;
@@ -66,6 +94,8 @@ export function SendAgentMessage(arg1:string,arg2:string):Promise<void>;
 export function SendNotification(arg1:string,arg2:string):Promise<void>;
 
 export function SetPreferences(arg1:config.UserPreferences):Promise<void>;
+
+export function SetSessionFavorite(arg1:string,arg2:boolean):Promise<void>;
 
 export function StartAgentSession(arg1:string):Promise<void>;
 

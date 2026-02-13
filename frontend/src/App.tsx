@@ -7,11 +7,14 @@ import { TaskList } from './components/tasks/TaskList';
 import { ApprovalBar } from './components/approval/ApprovalBar';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
+import { SearchModal } from './components/search/SearchModal';
 import { useAgent } from './hooks/useAgent';
 import { useProject } from './hooks/useProject';
 import { usePreferences } from './hooks/usePreferences';
+import { useSearch } from './hooks/useSearch';
 import { useStore } from './store';
 import { ListTodo, MessageSquare } from 'lucide-react';
+import { ListAgentSessions, SetSessionFavorite, AddSessionTag, RemoveSessionTag } from '../wailsjs/go/main/App';
 
 type TabView = 'chat' | 'tasks';
 
@@ -53,6 +56,22 @@ function App() {
     savePreferences,
     completeOnboardingFlow,
   } = usePreferences();
+
+  const {
+    isSearchOpen,
+    openSearch,
+    closeSearch,
+    performSearch,
+    availableTags,
+    availableProjects,
+    setProjects,
+  } = useSearch();
+
+  // Update available projects for search
+  useEffect(() => {
+    const projectPaths = projects.map((p) => p.path);
+    setProjects(projectPaths);
+  }, [projects, setProjects]);
 
   // Dismiss error after 5 seconds
   useEffect(() => {
@@ -109,6 +128,55 @@ function App() {
     }
   };
 
+  // Handle toggle favorite
+  const handleToggleFavorite = async (sessionId: string) => {
+    const session = sessions.find((s) => s.id === sessionId);
+    if (session) {
+      try {
+        await SetSessionFavorite(sessionId, !session.isFavorite);
+        // Update the session in the store without a full reload
+        const updatedSessions = sessions.map((s) =>
+          s.id === sessionId ? { ...s, isFavorite: !s.isFavorite } : s
+        );
+        useStore.setState({ sessions: updatedSessions });
+      } catch (err) {
+        setError('Failed to toggle favorite');
+      }
+    }
+  };
+
+  // Handle add tag
+  const handleAddTag = async (sessionId: string, tag: string) => {
+    try {
+      await AddSessionTag(sessionId, tag);
+      // Update the session in the store without a full reload
+      const updatedSessions = sessions.map((s) =>
+        s.id === sessionId
+          ? { ...s, tags: [...(s.tags || []), tag] }
+          : s
+      );
+      useStore.setState({ sessions: updatedSessions });
+    } catch (err) {
+      setError('Failed to add tag');
+    }
+  };
+
+  // Handle remove tag
+  const handleRemoveTag = async (sessionId: string, tag: string) => {
+    try {
+      await RemoveSessionTag(sessionId, tag);
+      // Update the session in the store without a full reload
+      const updatedSessions = sessions.map((s) =>
+        s.id === sessionId
+          ? { ...s, tags: (s.tags || []).filter((t) => t !== tag) }
+          : s
+      );
+      useStore.setState({ sessions: updatedSessions });
+    } catch (err) {
+      setError('Failed to remove tag');
+    }
+  };
+
   // Show loading state while preferences are loading
   if (isLoading) {
     return (
@@ -147,6 +215,16 @@ function App() {
         />
       )}
 
+      {/* Search */}
+      <SearchModal
+        isOpen={isSearchOpen}
+        onClose={closeSearch}
+        onSelectSession={selectSession}
+        onSearch={performSearch}
+        availableTags={availableTags}
+        availableProjects={availableProjects}
+      />
+
       {/* Error Toast */}
       {error && (
         <div className="fixed top-4 right-4 z-50 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg">
@@ -159,6 +237,7 @@ function App() {
         onNewSession={handleNewSession}
         onOpenProject={handleOpenProject}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSearch={openSearch}
       />
 
       {/* Main Layout */}
@@ -172,6 +251,9 @@ function App() {
           onSessionSelect={selectSession}
           onProjectSelect={selectProject}
           onDeleteSession={deleteSession}
+          onToggleFavorite={handleToggleFavorite}
+          onAddTag={handleAddTag}
+          onRemoveTag={handleRemoveTag}
           isOpen={sidebarOpen}
         />
 

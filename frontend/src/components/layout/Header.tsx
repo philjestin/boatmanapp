@@ -1,13 +1,14 @@
-import { Menu, Settings, Plus, FolderOpen } from 'lucide-react';
+import { Menu, Settings, Plus, FolderOpen, Search } from 'lucide-react';
 import { useStore } from '../../store';
 
 interface HeaderProps {
   onNewSession: () => void;
   onOpenProject: () => void;
   onOpenSettings: () => void;
+  onOpenSearch: () => void;
 }
 
-export function Header({ onNewSession, onOpenProject, onOpenSettings }: HeaderProps) {
+export function Header({ onNewSession, onOpenProject, onOpenSettings, onOpenSearch }: HeaderProps) {
   const { toggleSidebar, sidebarOpen } = useStore();
 
   return (
@@ -37,6 +38,14 @@ export function Header({ onNewSession, onOpenProject, onOpenSettings }: HeaderPr
         >
           <Plus className="w-4 h-4" />
           <span>New Session</span>
+        </button>
+        <button
+          onClick={onOpenSearch}
+          className="p-1.5 rounded-md hover:bg-slate-700 transition-colors no-drag"
+          aria-label="Search sessions (Cmd+Shift+F)"
+          title="Search sessions (Cmd+Shift+F)"
+        >
+          <Search className="w-5 h-5 text-slate-300" />
         </button>
         <button
           onClick={onOpenSettings}

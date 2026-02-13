@@ -32,7 +32,25 @@ vi.mock('../wailsjs/go/main/App', () => ({
   DeleteAgentSession: vi.fn().mockResolvedValue(undefined),
   SendAgentMessage: vi.fn().mockResolvedValue(undefined),
   GetAgentMessages: vi.fn().mockResolvedValue([]),
+  GetAgentMessagesPaginated: vi.fn().mockResolvedValue({
+    messages: [],
+    total: 0,
+    page: 1,
+    pageSize: 50,
+    hasMore: false
+  }),
   GetAgentTasks: vi.fn().mockResolvedValue([]),
   SelectFolder: vi.fn().mockResolvedValue('/test/path'),
   OpenProject: vi.fn().mockResolvedValue({ id: 'test-project', name: 'Test', path: '/test/path', lastOpened: new Date().toISOString(), createdAt: new Date().toISOString() }),
+  SearchSessions: vi.fn().mockResolvedValue([]),
+  GetAllTags: vi.fn().mockResolvedValue([]),
+  AddSessionTag: vi.fn().mockResolvedValue(undefined),
+  RemoveSessionTag: vi.fn().mockResolvedValue(undefined),
+  SetSessionFavorite: vi.fn().mockResolvedValue(undefined),
+  CleanupOldSessions: vi.fn().mockResolvedValue(0),
+  GetSessionStats: vi.fn().mockResolvedValue({
+    total: 0,
+    oldestDate: '',
+    newestDate: ''
+  }),
 }));

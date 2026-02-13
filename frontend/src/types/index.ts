@@ -58,6 +58,8 @@ export interface AgentSession {
   createdAt: string;
   messages: Message[];
   tasks: Task[];
+  tags?: string[];
+  isFavorite?: boolean;
 }
 
 // =============================================================================

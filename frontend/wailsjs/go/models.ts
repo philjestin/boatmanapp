@@ -5,6 +5,9 @@ export namespace agent {
 	    agentType: string;
 	    parentAgentId?: string;
 	    description?: string;
+	    status?: string;
+	    // Go type: time
+	    completedAt?: any;
 	
 	    static createFrom(source: any = {}) {
 	        return new AgentInfo(source);
@@ -16,7 +19,27 @@ export namespace agent {
 	        this.agentType = source["agentType"];
 	        this.parentAgentId = source["parentAgentId"];
 	        this.description = source["description"];
+	        this.status = source["status"];
+	        this.completedAt = this.convertValues(source["completedAt"], null);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class CostInfo {
 	    inputTokens: number;
@@ -197,6 +220,13 @@ export namespace config {
 	    notificationsEnabled: boolean;
 	    mcpServers: MCPServer[];
 	    onboardingCompleted: boolean;
+	    maxMessagesPerSession: number;
+	    archiveOldMessages: boolean;
+	    maxSessionAgeDays: number;
+	    maxTotalSessions: number;
+	    autoCleanupSessions: boolean;
+	    maxAgentsPerSession: number;
+	    keepCompletedAgents: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new UserPreferences(source);
@@ -214,6 +244,13 @@ export namespace config {
 	        this.notificationsEnabled = source["notificationsEnabled"];
 	        this.mcpServers = this.convertValues(source["mcpServers"], MCPServer);
 	        this.onboardingCompleted = source["onboardingCompleted"];
+	        this.maxMessagesPerSession = source["maxMessagesPerSession"];
+	        this.archiveOldMessages = source["archiveOldMessages"];
+	        this.maxSessionAgeDays = source["maxSessionAgeDays"];
+	        this.maxTotalSessions = source["maxTotalSessions"];
+	        this.autoCleanupSessions = source["autoCleanupSessions"];
+	        this.maxAgentsPerSession = source["maxAgentsPerSession"];
+	        this.keepCompletedAgents = source["keepCompletedAgents"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -367,6 +404,8 @@ export namespace main {
 	    projectPath: string;
 	    status: string;
 	    createdAt: string;
+	    tags?: string[];
+	    isFavorite?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new AgentSessionInfo(source);
@@ -378,6 +417,8 @@ export namespace main {
 	        this.projectPath = source["projectPath"];
 	        this.status = source["status"];
 	        this.createdAt = source["createdAt"];
+	        this.tags = source["tags"];
+	        this.isFavorite = source["isFavorite"];
 	    }
 	}
 	export class GitStatus {
@@ -400,6 +441,96 @@ export namespace main {
 	        this.added = source["added"];
 	        this.deleted = source["deleted"];
 	        this.untracked = source["untracked"];
+	    }
+	}
+	export class MessagePage {
+	    messages: agent.Message[];
+	    total: number;
+	    page: number;
+	    pageSize: number;
+	    hasMore: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new MessagePage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.messages = this.convertValues(source["messages"], agent.Message);
+	        this.total = source["total"];
+	        this.page = source["page"];
+	        this.pageSize = source["pageSize"];
+	        this.hasMore = source["hasMore"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class SearchSessionsRequest {
+	    query: string;
+	    tags: string[];
+	    projectPath: string;
+	    isFavorite?: boolean;
+	    fromDate: string;
+	    toDate: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SearchSessionsRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.query = source["query"];
+	        this.tags = source["tags"];
+	        this.projectPath = source["projectPath"];
+	        this.isFavorite = source["isFavorite"];
+	        this.fromDate = source["fromDate"];
+	        this.toDate = source["toDate"];
+	    }
+	}
+	export class SearchSessionsResponse {
+	    sessionId: string;
+	    projectPath: string;
+	    createdAt: string;
+	    updatedAt: string;
+	    tags: string[];
+	    isFavorite: boolean;
+	    messageCount: number;
+	    score: number;
+	    matchReasons: string[];
+	    status: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SearchSessionsResponse(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sessionId = source["sessionId"];
+	        this.projectPath = source["projectPath"];
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
+	        this.tags = source["tags"];
+	        this.isFavorite = source["isFavorite"];
+	        this.messageCount = source["messageCount"];
+	        this.score = source["score"];
+	        this.matchReasons = source["matchReasons"];
+	        this.status = source["status"];
 	    }
 	}
 
