@@ -115,6 +115,8 @@ export interface DiffHunk {
   newStart: number;
   newLines: number;
   lines: DiffLine[];
+  id?: string;
+  approved?: boolean;
 }
 
 export interface FileDiff {
@@ -124,6 +126,8 @@ export interface FileDiff {
   isNew: boolean;
   isDelete: boolean;
   isBinary: boolean;
+  approved?: boolean;
+  comments?: DiffComment[];
 }
 
 export interface SideBySideLine {
@@ -132,6 +136,36 @@ export interface SideBySideLine {
   rightNum?: number;
   rightContent?: string;
   type: 'context' | 'added' | 'deleted' | 'modified';
+}
+
+// Diff comment types
+export interface DiffComment {
+  id: string;
+  lineNum: number;
+  hunkId?: string;
+  content: string;
+  timestamp: string;
+  author?: string;
+}
+
+export interface DiffSummary {
+  totalFiles: number;
+  filesAdded: number;
+  filesDeleted: number;
+  filesModified: number;
+  linesAdded: number;
+  linesDeleted: number;
+  riskLevel: 'low' | 'medium' | 'high';
+}
+
+export interface HunkApprovalState {
+  [fileKey: string]: {
+    [hunkId: string]: boolean;
+  };
+}
+
+export interface FileApprovalState {
+  [fileKey: string]: boolean;
 }
 
 // =============================================================================

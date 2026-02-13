@@ -570,7 +570,8 @@ func TestParseStreamLine(t *testing.T) {
 			session.Start("sonnet")
 
 			var responseBuilder strings.Builder
-			session.parseStreamLine(tt.line, &responseBuilder)
+			var currentMessageID string
+			session.parseStreamLine(tt.line, &responseBuilder, &currentMessageID)
 
 			if tt.expectMessages > 0 {
 				messages := session.GetMessages()
@@ -1352,8 +1353,9 @@ func TestEdgeCases(t *testing.T) {
 	t.Run("parse malformed JSON", func(t *testing.T) {
 		session := NewSession("test-session", "/path/to/project")
 		var responseBuilder strings.Builder
+		var currentMessageID string
 
-		session.parseStreamLine(`{"type":"incomplete"`, &responseBuilder)
+		session.parseStreamLine(`{"type":"incomplete"`, &responseBuilder, &currentMessageID)
 
 		// Should not crash, might add a system message
 	})
@@ -1516,8 +1518,9 @@ func TestStreamJSONSequences(t *testing.T) {
 			`{"type":"message_stop"}`,
 		}
 
+		var currentMessageID string
 		for _, line := range lines {
-			session.parseStreamLine(line, &responseBuilder)
+			session.parseStreamLine(line, &responseBuilder, &currentMessageID)
 		}
 
 		// Check conversation ID was set
@@ -1563,8 +1566,9 @@ func TestStreamJSONSequences(t *testing.T) {
 			`{"type":"tool_result","tool_use_id":"tool-1","content":"package main","is_error":false}`,
 		}
 
+		var currentMessageID string
 		for _, line := range lines {
-			session.parseStreamLine(line, &responseBuilder)
+			session.parseStreamLine(line, &responseBuilder, &currentMessageID)
 		}
 
 		messages := session.GetMessages()

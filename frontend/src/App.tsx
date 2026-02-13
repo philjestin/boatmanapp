@@ -4,6 +4,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { MainPanel } from './components/layout/MainPanel';
 import { ChatView } from './components/chat/ChatView';
 import { TaskList } from './components/tasks/TaskList';
+import { DiffView } from './components/diff/DiffView';
 import { ApprovalBar } from './components/approval/ApprovalBar';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
@@ -12,11 +13,12 @@ import { useAgent } from './hooks/useAgent';
 import { useProject } from './hooks/useProject';
 import { usePreferences } from './hooks/usePreferences';
 import { useSearch } from './hooks/useSearch';
+import { useDiff } from './hooks/useDiff';
 import { useStore } from './store';
-import { ListTodo, MessageSquare } from 'lucide-react';
+import { ListTodo, MessageSquare, FileCode } from 'lucide-react';
 import { ListAgentSessions, SetSessionFavorite, AddSessionTag, RemoveSessionTag } from '../wailsjs/go/main/App';
 
-type TabView = 'chat' | 'tasks';
+type TabView = 'chat' | 'tasks' | 'diff';
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabView>('chat');
@@ -67,11 +69,29 @@ function App() {
     setProjects,
   } = useSearch();
 
+  const {
+    diffs,
+    sideBySideData,
+    loadDiffs,
+    loadSideBySide,
+    acceptFile,
+    rejectFile,
+    acceptAll,
+    rejectAll,
+  } = useDiff();
+
   // Update available projects for search
   useEffect(() => {
     const projectPaths = projects.map((p) => p.path);
     setProjects(projectPaths);
   }, [projects, setProjects]);
+
+  // Load diffs when active project changes or when switching to diff tab
+  useEffect(() => {
+    if (activeProject && activeTab === 'diff') {
+      loadDiffs(activeProject.path);
+    }
+  }, [activeProject, activeTab, loadDiffs]);
 
   // Dismiss error after 5 seconds
   useEffect(() => {
@@ -294,6 +314,22 @@ function App() {
                     </span>
                   )}
                 </button>
+                <button
+                  onClick={() => setActiveTab('diff')}
+                  className={`flex items-center gap-2 px-4 py-3 text-sm transition-colors border-b-2 ${
+                    activeTab === 'diff'
+                      ? 'border-blue-500 text-slate-100'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <FileCode className="w-4 h-4" />
+                  Changes
+                  {diffs.length > 0 && (
+                    <span className="px-1.5 py-0.5 text-xs bg-slate-700 rounded-full">
+                      {diffs.length}
+                    </span>
+                  )}
+                </button>
               </div>
 
               {/* Tab Content */}
@@ -311,6 +347,16 @@ function App() {
                   <div className="p-4 overflow-y-auto h-full">
                     <TaskList tasks={activeSession.tasks} />
                   </div>
+                )}
+                {activeTab === 'diff' && (
+                  <DiffView
+                    diffs={diffs}
+                    sideBySideData={sideBySideData}
+                    onAccept={acceptFile}
+                    onReject={rejectFile}
+                    onAcceptAll={acceptAll}
+                    onRejectAll={rejectAll}
+                  />
                 )}
               </div>
             </>

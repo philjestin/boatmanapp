@@ -343,13 +343,14 @@ func (s *Session) runClaudeCommand(prompt string, authConfig AuthConfig) {
 
 	// Read and parse stdout
 	var responseBuilder strings.Builder
+	var currentMessageID string // Track the current streaming message
 	scanner := bufio.NewScanner(stdout)
 	buf := make([]byte, 0, 64*1024)
 	scanner.Buffer(buf, 1024*1024)
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		s.parseStreamLine(line, &responseBuilder)
+		s.parseStreamLine(line, &responseBuilder, &currentMessageID)
 	}
 
 	// Wait for command to finish
@@ -357,7 +358,7 @@ func (s *Session) runClaudeCommand(prompt string, authConfig AuthConfig) {
 
 	// Flush any remaining response
 	if responseBuilder.Len() > 0 {
-		s.addAssistantMessage(responseBuilder.String())
+		s.finalizeMessage(currentMessageID, responseBuilder.String())
 	}
 
 	// Set status back to idle
@@ -369,7 +370,7 @@ func (s *Session) runClaudeCommand(prompt string, authConfig AuthConfig) {
 }
 
 // parseStreamLine parses a single line of stream-json output
-func (s *Session) parseStreamLine(line string, responseBuilder *strings.Builder) {
+func (s *Session) parseStreamLine(line string, responseBuilder *strings.Builder, currentMessageID *string) {
 	if strings.TrimSpace(line) == "" {
 		return
 	}
@@ -437,19 +438,33 @@ func (s *Session) parseStreamLine(line string, responseBuilder *strings.Builder)
 			}
 		}
 
+	case "content_block_start":
+		// New content block starting - create a new message for streaming
+		if *currentMessageID == "" {
+			*currentMessageID = s.createStreamingMessage()
+		}
+
 	case "content_block_delta":
-		// Streaming delta
+		// Streaming delta - update the message in real-time
 		if delta, ok := event["delta"].(map[string]any); ok {
 			if text, ok := delta["text"].(string); ok {
+				fmt.Printf("[content_block_delta] Received text chunk (len=%d): %s...\n", len(text), truncateString(text, 50))
 				responseBuilder.WriteString(text)
+				// Stream this update to the frontend
+				if *currentMessageID != "" {
+					s.updateStreamingMessage(*currentMessageID, responseBuilder.String())
+				} else {
+					fmt.Println("[content_block_delta] WARNING: No currentMessageID set!")
+				}
 			}
 		}
 
 	case "content_block_stop":
-		// Block finished - flush to message
-		if responseBuilder.Len() > 0 {
-			s.addAssistantMessage(responseBuilder.String())
+		// Block finished - finalize the message
+		if responseBuilder.Len() > 0 && *currentMessageID != "" {
+			s.finalizeMessage(*currentMessageID, responseBuilder.String())
 			responseBuilder.Reset()
+			*currentMessageID = ""
 		}
 
 	case "message_start":
@@ -486,10 +501,11 @@ func (s *Session) parseStreamLine(line string, responseBuilder *strings.Builder)
 
 	case "message_stop", "result":
 		fmt.Println("[message_stop/result] Processing end of message")
-		// Message complete
-		if responseBuilder.Len() > 0 {
-			s.addAssistantMessage(responseBuilder.String())
+		// Message complete - finalize if there's any remaining content
+		if responseBuilder.Len() > 0 && *currentMessageID != "" {
+			s.finalizeMessage(*currentMessageID, responseBuilder.String())
 			responseBuilder.Reset()
+			*currentMessageID = ""
 		}
 		// Extract conversation ID from result if present
 		if result, ok := event["result"].(map[string]any); ok {
@@ -520,12 +536,13 @@ func (s *Session) parseStreamLine(line string, responseBuilder *strings.Builder)
 		}
 
 	case "tool_use":
-		s.handleToolUse(event)
 		// Flush any pending text before tool use
-		if responseBuilder.Len() > 0 {
-			s.addAssistantMessage(responseBuilder.String())
+		if responseBuilder.Len() > 0 && *currentMessageID != "" {
+			s.finalizeMessage(*currentMessageID, responseBuilder.String())
 			responseBuilder.Reset()
+			*currentMessageID = ""
 		}
+		s.handleToolUse(event)
 
 	case "tool_result":
 		s.handleToolResult(event)
@@ -544,6 +561,9 @@ func (s *Session) parseStreamLine(line string, responseBuilder *strings.Builder)
 		// Handle sub-agent output from team agents
 		if text, ok := event["text"].(string); ok {
 			responseBuilder.WriteString(text)
+			if *currentMessageID != "" {
+				s.updateStreamingMessage(*currentMessageID, responseBuilder.String())
+			}
 		}
 
 	case "error":
@@ -655,6 +675,109 @@ func (s *Session) addSystemMessage(content string) {
 	if s.onMessage != nil {
 		s.onMessage(msg)
 	}
+}
+
+// truncateString truncates a string to maxLen characters
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen]
+}
+
+// createStreamingMessage creates a new message for streaming content
+func (s *Session) createStreamingMessage() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Get current agent info
+	agentInfo := s.agents[s.currentAgentID]
+	agentCopy := *agentInfo
+
+	msgID := fmt.Sprintf("msg-%d", time.Now().UnixNano())
+	msg := Message{
+		ID:        msgID,
+		Role:      "assistant",
+		Content:   "",
+		Timestamp: time.Now(),
+		Metadata: &MessageMetadata{
+			Agent: &agentCopy,
+		},
+	}
+
+	s.Messages = append(s.Messages, msg)
+	s.UpdatedAt = time.Now()
+
+	fmt.Printf("[createStreamingMessage] Created and emitting message ID=%s with empty content (will update as content streams)\n", msgID)
+
+	// Emit the message immediately so frontend knows about it
+	// Content will be added via updateStreamingMessage calls
+	if s.onMessage != nil {
+		s.onMessage(msg)
+	}
+
+	return msgID
+}
+
+// updateStreamingMessage updates an existing streaming message with new content
+func (s *Session) updateStreamingMessage(messageID string, content string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Find the message and update it
+	for i := range s.Messages {
+		if s.Messages[i].ID == messageID {
+			s.Messages[i].Content = content
+			s.Messages[i].Timestamp = time.Now()
+			s.UpdatedAt = time.Now()
+
+			fmt.Printf("[updateStreamingMessage] Updated message ID=%s with content (len=%d): %s...\n",
+				messageID, len(content), truncateString(content, 100))
+
+			// Always emit updates so frontend can see streaming content
+			if s.onMessage != nil {
+				s.onMessage(s.Messages[i])
+			}
+			return
+		}
+	}
+	fmt.Printf("[updateStreamingMessage] WARNING: Message ID=%s not found!\n", messageID)
+}
+
+// finalizeMessage marks a streaming message as complete
+func (s *Session) finalizeMessage(messageID string, content string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Find the message and finalize it
+	for i := range s.Messages {
+		if s.Messages[i].ID == messageID {
+			// Skip finalizing if content is empty
+			if strings.TrimSpace(content) == "" {
+				fmt.Printf("[finalizeMessage] WARNING: Message ID=%s has empty content, removing it\n", messageID)
+				// Remove the message from the list
+				s.Messages = append(s.Messages[:i], s.Messages[i+1:]...)
+				s.UpdatedAt = time.Now()
+				return
+			}
+
+			s.Messages[i].Content = content
+			s.Messages[i].Timestamp = time.Now()
+			s.UpdatedAt = time.Now()
+
+			fmt.Printf("[finalizeMessage] Finalized message ID=%s with content (len=%d): %s...\n",
+				messageID, len(content), truncateString(content, 100))
+
+			// Trim messages if needed
+			_ = s.TrimMessagesIfNeeded(s.maxMessages, s.archive)
+
+			if s.onMessage != nil {
+				s.onMessage(s.Messages[i])
+			}
+			return
+		}
+	}
+	fmt.Printf("[finalizeMessage] WARNING: Message ID=%s not found!\n", messageID)
 }
 
 func (s *Session) handleToolUse(event map[string]any) {

@@ -180,11 +180,21 @@ export const useStore = create<Store>()(
           console.log('[STORE] addMessage called:', { sessionId, message });
           set(
             (state) => ({
-              sessions: state.sessions.map((s) =>
-                s.id === sessionId
-                  ? { ...s, messages: [...s.messages, message] }
-                  : s
-              ),
+              sessions: state.sessions.map((s) => {
+                if (s.id !== sessionId) return s;
+
+                // Check if message already exists (for streaming updates)
+                const existingIndex = s.messages.findIndex((m) => m.id === message.id);
+                if (existingIndex !== -1) {
+                  // Update existing message
+                  const newMessages = [...s.messages];
+                  newMessages[existingIndex] = message;
+                  return { ...s, messages: newMessages };
+                } else {
+                  // Add new message
+                  return { ...s, messages: [...s.messages, message] };
+                }
+              }),
             }),
             false,
             'addMessage'

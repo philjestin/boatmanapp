@@ -1,16 +1,23 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Check, X, Columns, Rows, File } from 'lucide-react';
 import { FileTree } from './FileTree';
 import { DiffLine, SideBySideLine } from './DiffLine';
-import type { FileDiff, SideBySideLine as SideBySideLineType } from '../../types';
+import { DiffCommentThread } from './DiffCommentThread';
+import { BatchApprovalBar } from './BatchApprovalBar';
+import { DiffSummaryCard } from './DiffSummaryCard';
+import { calculateDiffSummary, generateCommentId } from '../../utils/diffUtils';
+import { diff } from '../../../wailsjs/go/models';
 
 interface DiffViewProps {
-  diffs: FileDiff[];
-  sideBySideData?: Record<string, SideBySideLineType[]>;
+  diffs: diff.FileDiff[];
+  sideBySideData?: Record<string, diff.SideBySideLine[]>;
   onAccept?: (filePath: string) => void;
   onReject?: (filePath: string) => void;
   onAcceptAll?: () => void;
   onRejectAll?: () => void;
+  onUpdateComments?: (filePath: string, comments: diff.DiffComment[]) => void;
+  onApproveHunk?: (filePath: string, hunkId: string) => void;
+  onRejectHunk?: (filePath: string, hunkId: string) => void;
 }
 
 type ViewMode = 'unified' | 'split';
@@ -22,17 +29,83 @@ export function DiffView({
   onReject,
   onAcceptAll,
   onRejectAll,
+  onUpdateComments,
+  onApproveHunk,
+  onRejectHunk,
 }: DiffViewProps) {
   const [selectedFile, setSelectedFile] = useState<string | null>(
     diffs.length > 0 ? diffs[0].newPath || diffs[0].oldPath : null
   );
   const [viewMode, setViewMode] = useState<ViewMode>('unified');
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [showComments, setShowComments] = useState<Record<string, boolean>>({});
 
   const selectedDiff = diffs.find(
     (d) => (d.newPath || d.oldPath) === selectedFile
   );
 
   const sideBySideLines = selectedFile ? sideBySideData[selectedFile] : undefined;
+
+  const summary = useMemo(() => calculateDiffSummary(diffs), [diffs]);
+
+  const handleToggleFileSelection = (filePath: string) => {
+    const newSelection = new Set(selectedFiles);
+    if (newSelection.has(filePath)) {
+      newSelection.delete(filePath);
+    } else {
+      newSelection.add(filePath);
+    }
+    setSelectedFiles(newSelection);
+  };
+
+  const handleApproveSelected = () => {
+    selectedFiles.forEach((filePath) => {
+      onAccept?.(filePath);
+    });
+    setSelectedFiles(new Set());
+  };
+
+  const handleRejectSelected = () => {
+    selectedFiles.forEach((filePath) => {
+      onReject?.(filePath);
+    });
+    setSelectedFiles(new Set());
+  };
+
+  const handleAddComment = (lineNum: number, hunkId: string | undefined, content: string) => {
+    if (!selectedFile || !onUpdateComments) return;
+
+    const fileDiff = diffs.find((d) => (d.newPath || d.oldPath) === selectedFile);
+    if (!fileDiff) return;
+
+    const newComment: diff.DiffComment = {
+      id: generateCommentId(),
+      lineNum,
+      hunkId,
+      content,
+      timestamp: new Date().toISOString(),
+    };
+
+    const updatedComments = [...(fileDiff.comments || []), newComment];
+    onUpdateComments(selectedFile, updatedComments);
+  };
+
+  const handleDeleteComment = (commentId: string) => {
+    if (!selectedFile || !onUpdateComments) return;
+
+    const fileDiff = diffs.find((d) => (d.newPath || d.oldPath) === selectedFile);
+    if (!fileDiff) return;
+
+    const updatedComments = (fileDiff.comments || []).filter((c) => c.id !== commentId);
+    onUpdateComments(selectedFile, updatedComments);
+  };
+
+  const toggleCommentThread = (lineKey: string) => {
+    setShowComments((prev) => ({
+      ...prev,
+      [lineKey]: !prev[lineKey],
+    }));
+  };
 
   return (
     <div className="flex flex-col h-full bg-slate-950">
@@ -86,12 +159,19 @@ export function DiffView({
 
       {/* Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* File tree */}
-        <FileTree
-          files={diffs}
-          selectedFile={selectedFile}
-          onFileSelect={setSelectedFile}
-        />
+        {/* Left Sidebar: File tree + Summary */}
+        <div className="flex flex-col border-r border-slate-700 w-64">
+          <FileTree
+            files={diffs}
+            selectedFile={selectedFile}
+            onFileSelect={setSelectedFile}
+            selectedFiles={selectedFiles}
+            onToggleFileSelection={handleToggleFileSelection}
+          />
+          <div className="p-3 border-t border-slate-700">
+            <DiffSummaryCard summary={summary} />
+          </div>
+        </div>
 
         {/* Diff content */}
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -152,7 +232,7 @@ export function DiffView({
                         leftContent={line.leftContent}
                         rightNum={line.rightNum}
                         rightContent={line.rightContent}
-                        type={line.type}
+                        type={line.type as any}
                       />
                     ))}
                   </div>
@@ -166,7 +246,7 @@ export function DiffView({
                         {hunk.lines.map((line, lineIndex) => (
                           <DiffLine
                             key={`${hunkIndex}-${lineIndex}`}
-                            type={line.type}
+                            type={line.type as any}
                             content={line.content}
                             oldNum={line.oldNum}
                             newNum={line.newNum}
@@ -185,6 +265,15 @@ export function DiffView({
           )}
         </div>
       </div>
+
+      {/* Batch Approval Bar */}
+      <BatchApprovalBar
+        selectedCount={selectedFiles.size}
+        totalCount={diffs.length}
+        onApproveSelected={handleApproveSelected}
+        onRejectSelected={handleRejectSelected}
+        onClearSelection={() => setSelectedFiles(new Set())}
+      />
     </div>
   );
 }

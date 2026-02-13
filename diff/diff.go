@@ -1,26 +1,43 @@
 package diff
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"strings"
 )
 
+// DiffComment represents a comment on a diff line
+type DiffComment struct {
+	ID        string `json:"id"`
+	LineNum   int    `json:"lineNum"`
+	HunkID    string `json:"hunkId,omitempty"`
+	Content   string `json:"content"`
+	Timestamp string `json:"timestamp"`
+	Author    string `json:"author,omitempty"`
+}
+
 // FileDiff represents a diff for a single file
 type FileDiff struct {
-	OldPath  string  `json:"oldPath"`
-	NewPath  string  `json:"newPath"`
-	Hunks    []Hunk  `json:"hunks"`
-	IsNew    bool    `json:"isNew"`
-	IsDelete bool    `json:"isDelete"`
-	IsBinary bool    `json:"isBinary"`
+	OldPath  string        `json:"oldPath"`
+	NewPath  string        `json:"newPath"`
+	Hunks    []Hunk        `json:"hunks"`
+	IsNew    bool          `json:"isNew"`
+	IsDelete bool          `json:"isDelete"`
+	IsBinary bool          `json:"isBinary"`
+	Approved bool          `json:"approved,omitempty"`
+	Comments []DiffComment `json:"comments,omitempty"`
 }
 
 // Hunk represents a section of changes
 type Hunk struct {
+	ID       string `json:"id,omitempty"`
 	OldStart int    `json:"oldStart"`
 	OldLines int    `json:"oldLines"`
 	NewStart int    `json:"newStart"`
 	NewLines int    `json:"newLines"`
 	Lines    []Line `json:"lines"`
+	Approved bool   `json:"approved,omitempty"`
 }
 
 // Line represents a single line in a diff
@@ -39,6 +56,13 @@ const (
 	LineTypeAddition LineType = "addition"
 	LineTypeDeletion LineType = "deletion"
 )
+
+// generateHunkID creates a unique identifier for a hunk
+func generateHunkID(filePath string, oldStart, newStart int) string {
+	input := fmt.Sprintf("%s:%d:%d", filePath, oldStart, newStart)
+	hash := sha256.Sum256([]byte(input))
+	return hex.EncodeToString(hash[:8]) // Use first 8 bytes for shorter IDs
+}
 
 // ParseUnifiedDiff parses a unified diff string into FileDiffs
 func ParseUnifiedDiff(diffText string) ([]FileDiff, error) {
@@ -107,6 +131,16 @@ func ParseUnifiedDiff(diffText string) ([]FileDiff, error) {
 			continue
 		}
 
+		// Skip metadata lines
+		if strings.HasPrefix(line, "new file mode") ||
+			strings.HasPrefix(line, "deleted file mode") ||
+			strings.HasPrefix(line, "index ") ||
+			strings.HasPrefix(line, "similarity index") ||
+			strings.HasPrefix(line, "rename from") ||
+			strings.HasPrefix(line, "rename to") {
+			continue
+		}
+
 		// Parse hunk header
 		if strings.HasPrefix(line, "@@") {
 			if currentHunk != nil {
@@ -114,6 +148,8 @@ func ParseUnifiedDiff(diffText string) ([]FileDiff, error) {
 			}
 
 			hunk := parseHunkHeader(line)
+			// Generate unique hunk ID
+			hunk.ID = generateHunkID(currentDiff.NewPath, hunk.OldStart, hunk.NewStart)
 			currentHunk = &hunk
 			oldLineNum = hunk.OldStart
 			newLineNum = hunk.NewStart
@@ -126,14 +162,22 @@ func ParseUnifiedDiff(diffText string) ([]FileDiff, error) {
 
 		// Parse diff lines
 		if len(line) == 0 {
-			currentHunk.Lines = append(currentHunk.Lines, Line{
-				Type:    LineTypeContext,
-				Content: "",
-				OldNum:  oldLineNum,
-				NewNum:  newLineNum,
-			})
-			oldLineNum++
-			newLineNum++
+			// Skip trailing empty lines
+			if i+1 < len(lines) {
+				// Check if next line is part of hunk
+				nextLine := lines[i+1]
+				if len(nextLine) > 0 && !strings.HasPrefix(nextLine, "diff ") &&
+					!strings.HasPrefix(nextLine, "@@") {
+					currentHunk.Lines = append(currentHunk.Lines, Line{
+						Type:    LineTypeContext,
+						Content: "",
+						OldNum:  oldLineNum,
+						NewNum:  newLineNum,
+					})
+					oldLineNum++
+					newLineNum++
+				}
+			}
 		} else if strings.HasPrefix(line, "+") {
 			currentHunk.Lines = append(currentHunk.Lines, Line{
 				Type:    LineTypeAddition,
@@ -183,8 +227,11 @@ func parseHunkHeader(line string) Hunk {
 
 	// Find the @@ markers
 	start := strings.Index(line, "@@")
+	if start == -1 || start+2 >= len(line) {
+		return hunk
+	}
 	end := strings.Index(line[start+2:], "@@")
-	if start == -1 || end == -1 {
+	if end == -1 {
 		return hunk
 	}
 

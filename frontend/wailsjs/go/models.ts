@@ -276,6 +276,28 @@ export namespace config {
 
 export namespace diff {
 	
+	export class DiffComment {
+	    id: string;
+	    lineNum: number;
+	    hunkId?: string;
+	    content: string;
+	    timestamp: string;
+	    author?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DiffComment(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.lineNum = source["lineNum"];
+	        this.hunkId = source["hunkId"];
+	        this.content = source["content"];
+	        this.timestamp = source["timestamp"];
+	        this.author = source["author"];
+	    }
+	}
 	export class Line {
 	    type: string;
 	    content: string;
@@ -295,11 +317,13 @@ export namespace diff {
 	    }
 	}
 	export class Hunk {
+	    id?: string;
 	    oldStart: number;
 	    oldLines: number;
 	    newStart: number;
 	    newLines: number;
 	    lines: Line[];
+	    approved?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Hunk(source);
@@ -307,11 +331,13 @@ export namespace diff {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
 	        this.oldStart = source["oldStart"];
 	        this.oldLines = source["oldLines"];
 	        this.newStart = source["newStart"];
 	        this.newLines = source["newLines"];
 	        this.lines = this.convertValues(source["lines"], Line);
+	        this.approved = source["approved"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -339,6 +365,8 @@ export namespace diff {
 	    isNew: boolean;
 	    isDelete: boolean;
 	    isBinary: boolean;
+	    approved?: boolean;
+	    comments?: DiffComment[];
 	
 	    static createFrom(source: any = {}) {
 	        return new FileDiff(source);
@@ -352,6 +380,8 @@ export namespace diff {
 	        this.isNew = source["isNew"];
 	        this.isDelete = source["isDelete"];
 	        this.isBinary = source["isBinary"];
+	        this.approved = source["approved"];
+	        this.comments = this.convertValues(source["comments"], DiffComment);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

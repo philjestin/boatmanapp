@@ -30,6 +30,14 @@ export function ChatView({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Debug: log messages
+  useEffect(() => {
+    console.log('[ChatView] Messages updated:', {
+      total: messages.length,
+      roles: messages.map(m => ({ id: m.id, role: m.role, hasContent: !!m.content, contentLen: m.content?.length || 0 }))
+    });
+  }, [messages]);
+
   const getStatusMessage = () => {
     switch (status) {
       case 'running':

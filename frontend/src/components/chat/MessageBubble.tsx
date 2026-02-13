@@ -1,7 +1,7 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { User, Bot, Wrench, AlertCircle } from 'lucide-react';
+import { User, Bot, Wrench, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { CodeBlock } from './CodeBlock';
 import type { Message } from '../../types';
 
@@ -16,11 +16,23 @@ function getLanguageFromClassName(className?: string): string {
 }
 
 export const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProps) {
+  const [showTokenDetails, setShowTokenDetails] = useState(false);
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
   const isToolUse = message.metadata?.toolUse;
   const isToolResult = message.metadata?.toolResult;
   const hasCostInfo = message.metadata?.costInfo;
+
+  // Debug logging
+  console.log('[MessageBubble] Rendering message:', {
+    id: message.id,
+    role: message.role,
+    contentLength: message.content?.length || 0,
+    contentPreview: message.content?.substring(0, 100),
+    hasCostInfo,
+    isToolUse,
+    isToolResult,
+  });
 
   const getIcon = () => {
     if (isUser) return <User className="w-4 h-4" />;
@@ -34,7 +46,7 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
       return 'bg-blue-500/10 border-blue-500/20';
     }
     if (isSystem || isToolResult) {
-      return 'bg-slate-800/30 border-slate-700/50 text-sm';
+      return 'bg-slate-800/20 border-slate-700/30 text-xs opacity-75';
     }
     if (isToolUse) {
       return 'bg-amber-500/5 border-amber-500/20 text-sm';
@@ -143,18 +155,42 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
             </div>
           )}
           {hasCostInfo && message.metadata?.costInfo && (
-            <div className="mt-2 pt-2 border-t border-slate-700 text-xs text-slate-500">
-              <div className="flex items-center gap-4">
-                <span>
-                  Input: {message.metadata.costInfo.inputTokens.toLocaleString()} tokens
-                </span>
-                <span>
-                  Output: {message.metadata.costInfo.outputTokens.toLocaleString()} tokens
-                </span>
-                <span className="text-green-400">
+            <div className="mt-2 pt-2 border-t border-slate-700/50">
+              <button
+                onClick={() => setShowTokenDetails(!showTokenDetails)}
+                className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-400 transition-colors w-full text-left"
+              >
+                {showTokenDetails ? (
+                  <ChevronDown className="w-3 h-3" />
+                ) : (
+                  <ChevronRight className="w-3 h-3" />
+                )}
+                <span className="text-green-400 font-medium">
                   ≈${message.metadata.costInfo.totalCost.toFixed(4)}
                 </span>
-              </div>
+                <span className="text-slate-600">•</span>
+                <span>
+                  {(message.metadata.costInfo.inputTokens + message.metadata.costInfo.outputTokens).toLocaleString()} tokens
+                </span>
+              </button>
+              {showTokenDetails && (
+                <div className="mt-2 pl-5 text-xs text-slate-500 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Input tokens:</span>
+                    <span className="font-mono">{message.metadata.costInfo.inputTokens.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Output tokens:</span>
+                    <span className="font-mono">{message.metadata.costInfo.outputTokens.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between pt-1 border-t border-slate-700/50">
+                    <span>Estimated cost:</span>
+                    <span className="font-mono text-green-400">
+                      ${message.metadata.costInfo.totalCost.toFixed(6)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

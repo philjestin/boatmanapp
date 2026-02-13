@@ -85,7 +85,13 @@ type Status struct {
 
 // GetDiff returns the diff for a file
 func (r *Repository) GetDiff(filePath string) (string, error) {
-	cmd := exec.Command("git", "diff", filePath)
+	var cmd *exec.Cmd
+	if filePath == "" {
+		// Get all diffs when no file path is specified
+		cmd = exec.Command("git", "diff")
+	} else {
+		cmd = exec.Command("git", "diff", filePath)
+	}
 	cmd.Dir = r.path
 	output, err := cmd.Output()
 	if err != nil {

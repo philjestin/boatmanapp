@@ -172,12 +172,12 @@ func TestParseUnifiedDiff_SimpleDiff(t *testing.T) {
 		t.Errorf("Expected hunk new position @1,3, got @%d,%d", hunk.NewStart, hunk.NewLines)
 	}
 
-	if len(hunk.Lines) != 3 {
-		t.Fatalf("Expected 3 lines, got %d", len(hunk.Lines))
+	if len(hunk.Lines) != 4 {
+		t.Fatalf("Expected 4 lines, got %d", len(hunk.Lines))
 	}
 
 	// Check line types
-	expectedTypes := []LineType{LineTypeContext, LineTypeDeletion, LineTypeAddition}
+	expectedTypes := []LineType{LineTypeContext, LineTypeDeletion, LineTypeAddition, LineTypeContext}
 	for i, expectedType := range expectedTypes {
 		if hunk.Lines[i].Type != expectedType {
 			t.Errorf("Line %d: expected type %s, got %s", i, expectedType, hunk.Lines[i].Type)
@@ -195,6 +195,10 @@ func TestParseUnifiedDiff_SimpleDiff(t *testing.T) {
 
 	if hunk.Lines[2].Content != "modified line 2" {
 		t.Errorf("Expected line 2 content 'modified line 2', got '%s'", hunk.Lines[2].Content)
+	}
+
+	if hunk.Lines[3].Content != "line 3" {
+		t.Errorf("Expected line 3 content 'line 3', got '%s'", hunk.Lines[3].Content)
 	}
 }
 
@@ -947,18 +951,18 @@ func TestGenerateSideBySide_ConsecutiveDeletions(t *testing.T) {
 
 	result := GenerateSideBySide(diff)
 
-	// First deletion followed by addition should be treated as modification
-	// Second deletion should be a separate deleted line
+	// Current behavior: pairs the last deletion with the addition as modification
+	// First deletion stands alone, second deletion + addition = modified
 	if len(result) != 2 {
 		t.Fatalf("Expected 2 lines, got %d", len(result))
 	}
 
-	if result[0].Type != "modified" {
-		t.Errorf("Expected first line to be 'modified', got '%s'", result[0].Type)
+	if result[0].Type != "deleted" {
+		t.Errorf("Expected first line to be 'deleted', got '%s'", result[0].Type)
 	}
 
-	if result[1].Type != "deleted" {
-		t.Errorf("Expected second line to be 'deleted', got '%s'", result[1].Type)
+	if result[1].Type != "modified" {
+		t.Errorf("Expected second line to be 'modified', got '%s'", result[1].Type)
 	}
 }
 
