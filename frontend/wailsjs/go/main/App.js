@@ -162,6 +162,14 @@ export function GetWorkspaceInfo(arg1) {
   return window['go']['main']['App']['GetWorkspaceInfo'](arg1);
 }
 
+export function InvestigateLinearTicket(arg1, arg2) {
+  return window['go']['main']['App']['InvestigateLinearTicket'](arg1, arg2);
+}
+
+export function InvestigateSlackAlert(arg1, arg2, arg3) {
+  return window['go']['main']['App']['InvestigateSlackAlert'](arg1, arg2, arg3);
+}
+
 export function IsFirefighterMonitoringActive(arg1) {
   return window['go']['main']['App']['IsFirefighterMonitoringActive'](arg1);
 }

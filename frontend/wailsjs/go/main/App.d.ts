@@ -87,6 +87,10 @@ export function GetSideBySideDiff(arg1:diff.FileDiff):Promise<Array<diff.SideByS
 
 export function GetWorkspaceInfo(arg1:string):Promise<project.WorkspaceInfo>;
 
+export function InvestigateLinearTicket(arg1:string,arg2:string):Promise<void>;
+
+export function InvestigateSlackAlert(arg1:string,arg2:string,arg3:string):Promise<void>;
+
 export function IsFirefighterMonitoringActive(arg1:string):Promise<boolean>;
 
 export function IsGCloudAuthenticated():Promise<boolean>;

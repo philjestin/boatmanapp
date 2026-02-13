@@ -615,6 +615,24 @@ func (a *App) IsFirefighterMonitoringActive(sessionID string) (bool, error) {
 	return session.IsFirefighterMonitoringActive(), nil
 }
 
+// InvestigateLinearTicket triggers investigation of a specific Linear ticket
+func (a *App) InvestigateLinearTicket(sessionID, linearIssueID string) error {
+	session, err := a.agentManager.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	return session.InvestigateLinearTicket(linearIssueID)
+}
+
+// InvestigateSlackAlert triggers investigation of a Slack alert
+func (a *App) InvestigateSlackAlert(sessionID, slackThreadID, alertMessage string) error {
+	session, err := a.agentManager.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	return session.InvestigateSlackAlert(slackThreadID, alertMessage)
+}
+
 // GetFirefighterMonitorStatus returns monitoring status
 func (a *App) GetFirefighterMonitorStatus(sessionID string) (map[string]interface{}, error) {
 	session, err := a.agentManager.GetSession(sessionID)

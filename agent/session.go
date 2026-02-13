@@ -1324,3 +1324,43 @@ func (s *Session) GetFirefighterMonitorStatus() map[string]interface{} {
 
 	return s.firefighterMonitor.GetStatus()
 }
+
+// InvestigateLinearTicket triggers investigation for a specific Linear ticket
+func (s *Session) InvestigateLinearTicket(linearIssueID string) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.Mode != "firefighter" {
+		return fmt.Errorf("not a firefighter session")
+	}
+
+	if s.firefighterMonitor == nil {
+		s.mu.RUnlock()
+		s.mu.Lock()
+		s.firefighterMonitor = NewFirefighterMonitor(s)
+		s.mu.Unlock()
+		s.mu.RLock()
+	}
+
+	return s.firefighterMonitor.InvestigateLinearTicket(linearIssueID)
+}
+
+// InvestigateSlackAlert triggers investigation for a Slack alert
+func (s *Session) InvestigateSlackAlert(slackThreadID, alertMessage string) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.Mode != "firefighter" {
+		return fmt.Errorf("not a firefighter session")
+	}
+
+	if s.firefighterMonitor == nil {
+		s.mu.RUnlock()
+		s.mu.Lock()
+		s.firefighterMonitor = NewFirefighterMonitor(s)
+		s.mu.Unlock()
+		s.mu.RLock()
+	}
+
+	return s.firefighterMonitor.InvestigateSlackAlert(slackThreadID, alertMessage)
+}

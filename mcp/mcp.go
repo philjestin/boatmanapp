@@ -202,5 +202,26 @@ func GetPresetServers() []Server {
 			},
 			Enabled: false,
 		},
+		{
+			Name:        "linear",
+			Description: "Linear project management and issue tracking",
+			Command:     "npx",
+			Args:        []string{"-y", "@modelcontextprotocol/server-linear"},
+			Env: map[string]string{
+				"LINEAR_API_KEY": "",
+			},
+			Enabled: false,
+		},
+		{
+			Name:        "slack",
+			Description: "Slack workspace integration",
+			Command:     "npx",
+			Args:        []string{"-y", "@modelcontextprotocol/server-slack"},
+			Env: map[string]string{
+				"SLACK_BOT_TOKEN": "",
+				"SLACK_TEAM_ID":   "",
+			},
+			Enabled: false,
+		},
 	}
 }
