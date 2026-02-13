@@ -21,7 +21,21 @@ export function CompleteOnboarding():Promise<void>;
 
 export function CreateAgentSession(arg1:string):Promise<main.AgentSessionInfo>;
 
+export function CreateFirefighterSession(arg1:string,arg2:string):Promise<main.AgentSessionInfo>;
+
 export function DeleteAgentSession(arg1:string):Promise<void>;
+
+export function GCloudGetAvailableProjects():Promise<Array<string>>;
+
+export function GCloudLogin():Promise<void>;
+
+export function GCloudLoginApplicationDefault():Promise<void>;
+
+export function GCloudRevoke():Promise<void>;
+
+export function GCloudSetProject(arg1:string):Promise<void>;
+
+export function GCloudVerifyVertexAIAccess(arg1:string,arg2:string):Promise<void>;
 
 export function GetAgentMessages(arg1:string):Promise<Array<agent.Message>>;
 
@@ -36,6 +50,10 @@ export function GetArchiveOldMessages():Promise<boolean>;
 export function GetAutoCleanupSessions():Promise<boolean>;
 
 export function GetClaudeCLIVersion():Promise<string>;
+
+export function GetFirefighterMonitorStatus(arg1:string):Promise<Record<string, any>>;
+
+export function GetGCloudAuthInfo():Promise<Record<string, any>>;
 
 export function GetGitDiff(arg1:string,arg2:string):Promise<string>;
 
@@ -55,6 +73,8 @@ export function GetMaxSessionAgeDays():Promise<number>;
 
 export function GetMaxTotalSessions():Promise<number>;
 
+export function GetOktaAccessToken(arg1:string,arg2:string,arg3:string):Promise<string>;
+
 export function GetPreferences():Promise<config.UserPreferences>;
 
 export function GetProject(arg1:string):Promise<project.Project>;
@@ -67,11 +87,25 @@ export function GetSideBySideDiff(arg1:diff.FileDiff):Promise<Array<diff.SideByS
 
 export function GetWorkspaceInfo(arg1:string):Promise<project.WorkspaceInfo>;
 
+export function IsFirefighterMonitoringActive(arg1:string):Promise<boolean>;
+
+export function IsGCloudAuthenticated():Promise<boolean>;
+
+export function IsGCloudInstalled():Promise<boolean>;
+
+export function IsOktaAuthenticated(arg1:string,arg2:string,arg3:string):Promise<boolean>;
+
 export function IsOnboardingCompleted():Promise<boolean>;
 
 export function ListAgentSessions():Promise<Array<main.AgentSessionInfo>>;
 
 export function ListProjects():Promise<Array<project.Project>>;
+
+export function OktaLogin(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function OktaRefreshToken(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function OktaRevoke(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function OpenProject(arg1:string):Promise<project.Project>;
 
@@ -99,6 +133,10 @@ export function SetSessionFavorite(arg1:string,arg2:boolean):Promise<void>;
 
 export function StartAgentSession(arg1:string):Promise<void>;
 
+export function StartFirefighterMonitoring(arg1:string):Promise<void>;
+
 export function StopAgentSession(arg1:string):Promise<void>;
+
+export function StopFirefighterMonitoring(arg1:string):Promise<void>;
 
 export function UpdateMCPServer(arg1:mcp.Server):Promise<void>;

@@ -1,4 +1,4 @@
-import { Menu, Settings, Plus, FolderOpen, Search } from 'lucide-react';
+import { Menu, Settings, Plus, FolderOpen, Search, Flame } from 'lucide-react';
 import { useStore } from '../../store';
 
 interface HeaderProps {
@@ -6,9 +6,10 @@ interface HeaderProps {
   onOpenProject: () => void;
   onOpenSettings: () => void;
   onOpenSearch: () => void;
+  onStartFirefighter: () => void;
 }
 
-export function Header({ onNewSession, onOpenProject, onOpenSettings, onOpenSearch }: HeaderProps) {
+export function Header({ onNewSession, onOpenProject, onOpenSettings, onOpenSearch, onStartFirefighter }: HeaderProps) {
   const { toggleSidebar, sidebarOpen } = useStore();
 
   return (
@@ -38,6 +39,14 @@ export function Header({ onNewSession, onOpenProject, onOpenSettings, onOpenSear
         >
           <Plus className="w-4 h-4" />
           <span>New Session</span>
+        </button>
+        <button
+          onClick={onStartFirefighter}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors no-drag"
+          title="Start Firefighter Investigation"
+        >
+          <Flame className="w-4 h-4" />
+          <span>Firefighter</span>
         </button>
         <button
           onClick={onOpenSearch}

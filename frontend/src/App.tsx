@@ -9,6 +9,8 @@ import { ApprovalBar } from './components/approval/ApprovalBar';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { SearchModal } from './components/search/SearchModal';
+import { FirefighterDialog } from './components/firefighter/FirefighterDialog';
+import { FirefighterMonitor } from './components/firefighter/FirefighterMonitor';
 import { useAgent } from './hooks/useAgent';
 import { useProject } from './hooks/useProject';
 import { usePreferences } from './hooks/usePreferences';
@@ -22,6 +24,8 @@ type TabView = 'chat' | 'tasks' | 'diff';
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabView>('chat');
+  const [firefighterDialogOpen, setFirefighterDialogOpen] = useState(false);
+  const [monitoringActive, setMonitoringActive] = useState(false);
 
   const {
     sidebarOpen,
@@ -36,12 +40,15 @@ function App() {
     activeSession,
     messagePagination,
     createSession,
+    createFirefighterSession,
     deleteSession,
     selectSession,
     sendMessage,
     approveAction,
     rejectAction,
     loadMessagesPaginated,
+    toggleFirefighterMonitoring,
+    isMonitoringActive,
   } = useAgent();
 
   const {
@@ -101,6 +108,19 @@ function App() {
     }
   }, [error, setError]);
 
+  // Check firefighter monitoring status when session changes
+  useEffect(() => {
+    const checkMonitoring = async () => {
+      if (activeSession && activeSession.mode === 'firefighter') {
+        const active = await isMonitoringActive(activeSession.id);
+        setMonitoringActive(active);
+      } else {
+        setMonitoringActive(false);
+      }
+    };
+    checkMonitoring();
+  }, [activeSession, isMonitoringActive]);
+
   // Handle new session creation
   const handleNewSession = async () => {
     if (activeProject) {
@@ -110,6 +130,19 @@ function App() {
       if (project) {
         await createSession(project.path);
       }
+    }
+  };
+
+  // Handle firefighter session creation
+  const handleStartFirefighter = async (scope: string, enableMonitoring: boolean = true) => {
+    if (activeProject) {
+      const sessionId = await createFirefighterSession(activeProject.path, scope);
+      if (sessionId && enableMonitoring) {
+        // Auto-start monitoring if enabled
+        await toggleFirefighterMonitoring(sessionId, true);
+      }
+    } else {
+      setError('Please open a project first');
     }
   };
 
@@ -197,6 +230,14 @@ function App() {
     }
   };
 
+  // Handle toggle firefighter monitoring
+  const handleToggleMonitoring = async (active: boolean) => {
+    if (activeSession) {
+      await toggleFirefighterMonitoring(activeSession.id, active);
+      setMonitoringActive(active);
+    }
+  };
+
   // Show loading state while preferences are loading
   if (isLoading) {
     return (
@@ -258,6 +299,15 @@ function App() {
         onOpenProject={handleOpenProject}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenSearch={openSearch}
+        onStartFirefighter={() => setFirefighterDialogOpen(true)}
+      />
+
+      {/* Firefighter Dialog */}
+      <FirefighterDialog
+        isOpen={firefighterDialogOpen}
+        onClose={() => setFirefighterDialogOpen(false)}
+        onStart={handleStartFirefighter}
+        projectPath={activeProject?.path || ''}
       />
 
       {/* Main Layout */}
@@ -285,6 +335,15 @@ function App() {
         >
           {hasActiveSession && (
             <>
+              {/* Firefighter Monitor */}
+              {activeSession.mode === 'firefighter' && (
+                <FirefighterMonitor
+                  sessionId={activeSession.id}
+                  isActive={monitoringActive}
+                  onToggle={handleToggleMonitoring}
+                />
+              )}
+
               {/* Tab Navigation */}
               <div className="flex items-center border-b border-slate-700 bg-slate-800">
                 <button

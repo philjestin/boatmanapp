@@ -180,5 +180,27 @@ func GetPresetServers() []Server {
 			Args:        []string{"-y", "@anthropic/mcp-server-postgres"},
 			Enabled:     false,
 		},
+		{
+			Name:        "datadog",
+			Description: "Query Datadog logs, metrics, and monitors",
+			Command:     "npx",
+			Args:        []string{"-y", "@datadog/mcp-server"},
+			Env: map[string]string{
+				"DD_API_KEY": "",
+				"DD_APP_KEY": "",
+				"DD_SITE":    "datadoghq.com",
+			},
+			Enabled: false,
+		},
+		{
+			Name:        "bugsnag",
+			Description: "Investigate Bugsnag errors and exceptions",
+			Command:     "npx",
+			Args:        []string{"-y", "@bugsnag/mcp-server"},
+			Env: map[string]string{
+				"BUGSNAG_API_KEY": "",
+			},
+			Enabled: false,
+		},
 	}
 }

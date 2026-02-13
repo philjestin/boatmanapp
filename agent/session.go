@@ -80,16 +80,18 @@ type Task struct {
 
 // Session represents an individual agent session
 type Session struct {
-	ID          string        `json:"id"`
-	ProjectPath string        `json:"projectPath"`
-	Status      SessionStatus `json:"status"`
-	Messages    []Message     `json:"messages"`
-	Tasks       []Task        `json:"tasks"`
-	CreatedAt   time.Time     `json:"createdAt"`
-	UpdatedAt   time.Time     `json:"updatedAt"`
-	Model       string        `json:"model"`
-	Tags        []string      `json:"tags,omitempty"`
-	IsFavorite  bool          `json:"isFavorite,omitempty"`
+	ID          string                 `json:"id"`
+	ProjectPath string                 `json:"projectPath"`
+	Status      SessionStatus          `json:"status"`
+	Messages    []Message              `json:"messages"`
+	Tasks       []Task                 `json:"tasks"`
+	CreatedAt   time.Time              `json:"createdAt"`
+	UpdatedAt   time.Time              `json:"updatedAt"`
+	Model       string                 `json:"model"`
+	Tags        []string               `json:"tags,omitempty"`
+	IsFavorite  bool                   `json:"isFavorite,omitempty"`
+	Mode        string                 `json:"mode"` // "standard", "firefighter"
+	ModeConfig  map[string]interface{} `json:"modeConfig,omitempty"`
 
 	mu             sync.RWMutex
 	ctx            context.Context
@@ -108,6 +110,9 @@ type Session struct {
 	// Agent cleanup settings
 	maxAgents     int
 	keepCompleted bool
+
+	// Firefighter monitoring
+	firefighterMonitor *FirefighterMonitor
 }
 
 // NewSession creates a new agent session
@@ -258,9 +263,19 @@ func (s *Session) SendMessage(content string, authConfig AuthConfig) error {
 
 // runClaudeCommand executes the Claude CLI with the given prompt
 func (s *Session) runClaudeCommand(prompt string, authConfig AuthConfig) {
+	// Inject system prompt for firefighter mode
+	actualPrompt := prompt
+	s.mu.RLock()
+	if s.Mode == "firefighter" && len(s.Messages) <= 1 {
+		scope, _ := s.ModeConfig["scope"].(string)
+		systemPrompt := GetFirefighterPrompt(scope)
+		actualPrompt = systemPrompt + "\n\n" + prompt
+	}
+	s.mu.RUnlock()
+
 	// Build command arguments
 	args := []string{
-		"-p", prompt,
+		"-p", actualPrompt,
 		"--output-format", "stream-json",
 		"--verbose",
 	}
@@ -273,6 +288,9 @@ func (s *Session) runClaudeCommand(prompt string, authConfig AuthConfig) {
 	if s.Model != "" {
 		args = append(args, "--model", s.Model)
 	}
+
+	// MCP servers are automatically loaded from ~/.claude/claude_mcp_config.json
+	// No need to pass them as command-line arguments
 
 	// Add approval mode flags
 	switch authConfig.ApprovalMode {
@@ -396,9 +414,10 @@ func (s *Session) parseStreamLine(line string, responseBuilder *strings.Builder,
 	// Check for usage in ANY event type (it can appear anywhere)
 	if usage, ok := event["usage"].(map[string]any); ok {
 		fmt.Println("[parseStreamLine] Found usage at top level in event type:", eventType)
-		// Process usage from any event type except streaming deltas (to avoid spam)
+		// Process usage from any event type except streaming deltas and events that handle usage in their case statement
 		isStreamingDelta := eventType == "content_block_delta" || eventType == "message_delta"
-		if !isStreamingDelta {
+		hasOwnUsageHandling := eventType == "message_start" || eventType == "message_stop" || eventType == "result"
+		if !isStreamingDelta && !hasOwnUsageHandling {
 			s.handleUsageInfo(usage, true)
 		}
 	}
@@ -468,17 +487,22 @@ func (s *Session) parseStreamLine(line string, responseBuilder *strings.Builder,
 		}
 
 	case "message_start":
-		// Extract usage info from message start
-		if message, ok := event["message"].(map[string]any); ok {
-			if usage, ok := message["usage"].(map[string]any); ok {
-				fmt.Println("[message_start] Found usage in message")
-				s.handleUsageInfo(usage, false)
-			}
-		}
-		// Also check top level
+		// Extract usage info from message start (process only once)
+		var startUsage map[string]any
+
+		// Priority: top level > message
 		if usage, ok := event["usage"].(map[string]any); ok {
 			fmt.Println("[message_start] Found usage at top level")
-			s.handleUsageInfo(usage, false)
+			startUsage = usage
+		} else if message, ok := event["message"].(map[string]any); ok {
+			if usage, ok := message["usage"].(map[string]any); ok {
+				fmt.Println("[message_start] Found usage in message")
+				startUsage = usage
+			}
+		}
+
+		if startUsage != nil {
+			s.handleUsageInfo(startUsage, false)
 		}
 
 	case "message_delta":
@@ -486,27 +510,36 @@ func (s *Session) parseStreamLine(line string, responseBuilder *strings.Builder,
 		if delta, ok := event["delta"].(map[string]any); ok {
 			if stopReason, ok := delta["stop_reason"].(string); ok && stopReason != "" {
 				fmt.Println("[message_delta] Message ending, checking for usage")
-				// Message is ending - check usage
+				// Message is ending - check usage (process only once)
 				if usage, ok := event["usage"].(map[string]any); ok {
 					fmt.Println("[message_delta] Found usage in event")
 					s.handleUsageInfo(usage, true)
 				}
 			}
 		}
-		// Also check top level usage
-		if usage, ok := event["usage"].(map[string]any); ok {
-			fmt.Println("[message_delta] Found usage at top level")
-			s.handleUsageInfo(usage, true)
-		}
 
 	case "message_stop", "result":
 		fmt.Println("[message_stop/result] Processing end of message")
-		// Message complete - finalize if there's any remaining content
-		if responseBuilder.Len() > 0 && *currentMessageID != "" {
-			s.finalizeMessage(*currentMessageID, responseBuilder.String())
-			responseBuilder.Reset()
-			*currentMessageID = ""
+
+		// For "result" type events, extract the text from the result field
+		if eventType == "result" {
+			if resultText, ok := event["result"].(string); ok && resultText != "" {
+				// Create or update message with the result text
+				if *currentMessageID == "" {
+					*currentMessageID = s.createStreamingMessage()
+				}
+				s.finalizeMessage(*currentMessageID, resultText)
+				*currentMessageID = ""
+			}
+		} else {
+			// For message_stop, finalize any remaining streamed content
+			if responseBuilder.Len() > 0 && *currentMessageID != "" {
+				s.finalizeMessage(*currentMessageID, responseBuilder.String())
+				responseBuilder.Reset()
+				*currentMessageID = ""
+			}
 		}
+
 		// Extract conversation ID from result if present
 		if result, ok := event["result"].(map[string]any); ok {
 			if convID, ok := result["session_id"].(string); ok {
@@ -515,24 +548,27 @@ func (s *Session) parseStreamLine(line string, responseBuilder *strings.Builder,
 				s.mu.Unlock()
 			}
 		}
-		// Extract final usage - check multiple locations
-		if message, ok := event["message"].(map[string]any); ok {
-			if usage, ok := message["usage"].(map[string]any); ok {
-				fmt.Println("[message_stop] Found usage in message")
-				s.handleUsageInfo(usage, true)
-			}
-		}
-		// Check top level
+		// Extract final usage - check multiple locations (process only once)
+		var finalUsage map[string]any
+
+		// Priority: top level > message > result
 		if usage, ok := event["usage"].(map[string]any); ok {
-			fmt.Println("[message_stop] Found usage at top level")
-			s.handleUsageInfo(usage, true)
-		}
-		// Check in result
-		if result, ok := event["result"].(map[string]any); ok {
-			if usage, ok := result["usage"].(map[string]any); ok {
-				fmt.Println("[message_stop] Found usage in result")
-				s.handleUsageInfo(usage, true)
+			fmt.Println("[message_stop/result] Found usage at top level")
+			finalUsage = usage
+		} else if message, ok := event["message"].(map[string]any); ok {
+			if usage, ok := message["usage"].(map[string]any); ok {
+				fmt.Println("[message_stop/result] Found usage in message")
+				finalUsage = usage
 			}
+		} else if result, ok := event["result"].(map[string]any); ok {
+			if usage, ok := result["usage"].(map[string]any); ok {
+				fmt.Println("[message_stop/result] Found usage in result")
+				finalUsage = usage
+			}
+		}
+
+		if finalUsage != nil {
+			s.handleUsageInfo(finalUsage, true)
 		}
 
 	case "tool_use":
@@ -1234,4 +1270,57 @@ func (s *Session) GetTags() []string {
 	tags := make([]string, len(s.Tags))
 	copy(tags, s.Tags)
 	return tags
+}
+
+// StartFirefighterMonitoring starts active monitoring for firefighter sessions
+func (s *Session) StartFirefighterMonitoring() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.Mode != "firefighter" {
+		return fmt.Errorf("not a firefighter session")
+	}
+
+	if s.firefighterMonitor == nil {
+		s.firefighterMonitor = NewFirefighterMonitor(s)
+	}
+
+	return s.firefighterMonitor.Start()
+}
+
+// StopFirefighterMonitoring stops active monitoring
+func (s *Session) StopFirefighterMonitoring() {
+	s.mu.RLock()
+	monitor := s.firefighterMonitor
+	s.mu.RUnlock()
+
+	if monitor != nil {
+		monitor.Stop()
+	}
+}
+
+// IsFirefighterMonitoringActive returns whether active monitoring is running
+func (s *Session) IsFirefighterMonitoringActive() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.firefighterMonitor == nil {
+		return false
+	}
+
+	return s.firefighterMonitor.IsActive()
+}
+
+// GetFirefighterMonitorStatus returns the current monitoring status
+func (s *Session) GetFirefighterMonitorStatus() map[string]interface{} {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.firefighterMonitor == nil {
+		return map[string]interface{}{
+			"active": false,
+		}
+	}
+
+	return s.firefighterMonitor.GetStatus()
 }

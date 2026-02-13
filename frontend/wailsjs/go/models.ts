@@ -227,6 +227,13 @@ export namespace config {
 	    autoCleanupSessions: boolean;
 	    maxAgentsPerSession: number;
 	    keepCompletedAgents: boolean;
+	    datadogAPIKey?: string;
+	    datadogAppKey?: string;
+	    datadogSite?: string;
+	    bugsnagAPIKey?: string;
+	    oktaDomain?: string;
+	    oktaClientID?: string;
+	    oktaClientSecret?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new UserPreferences(source);
@@ -251,6 +258,13 @@ export namespace config {
 	        this.autoCleanupSessions = source["autoCleanupSessions"];
 	        this.maxAgentsPerSession = source["maxAgentsPerSession"];
 	        this.keepCompletedAgents = source["keepCompletedAgents"];
+	        this.datadogAPIKey = source["datadogAPIKey"];
+	        this.datadogAppKey = source["datadogAppKey"];
+	        this.datadogSite = source["datadogSite"];
+	        this.bugsnagAPIKey = source["bugsnagAPIKey"];
+	        this.oktaDomain = source["oktaDomain"];
+	        this.oktaClientID = source["oktaClientID"];
+	        this.oktaClientSecret = source["oktaClientSecret"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

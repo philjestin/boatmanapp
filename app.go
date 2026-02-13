@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"boatman/agent"
+	"boatman/auth"
 	"boatman/config"
 	"boatman/diff"
 	gitpkg "boatman/git"
@@ -131,6 +132,22 @@ func (a *App) CreateAgentSession(projectPath string) (*AgentSessionInfo, error) 
 		ProjectPath: session.ProjectPath,
 		Status:      session.Status,
 		CreatedAt:   session.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}, nil
+}
+
+// CreateFirefighterSession creates a new firefighter agent session
+func (a *App) CreateFirefighterSession(projectPath string, scope string) (*AgentSessionInfo, error) {
+	session, err := a.agentManager.CreateFirefighterSession(projectPath, scope)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AgentSessionInfo{
+		ID:          session.ID,
+		ProjectPath: session.ProjectPath,
+		Status:      session.Status,
+		CreatedAt:   session.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Tags:        session.Tags,
 	}, nil
 }
 
@@ -564,6 +581,141 @@ func (a *App) SetSessionFavorite(sessionID string, favorite bool) error {
 // GetAllTags returns all unique tags across all sessions
 func (a *App) GetAllTags() ([]string, error) {
 	return agent.GetAllTags()
+}
+
+// =============================================================================
+// Firefighter Monitoring Methods
+// =============================================================================
+
+// StartFirefighterMonitoring enables active monitoring for a firefighter session
+func (a *App) StartFirefighterMonitoring(sessionID string) error {
+	session, err := a.agentManager.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	return session.StartFirefighterMonitoring()
+}
+
+// StopFirefighterMonitoring disables active monitoring
+func (a *App) StopFirefighterMonitoring(sessionID string) error {
+	session, err := a.agentManager.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+	session.StopFirefighterMonitoring()
+	return nil
+}
+
+// IsFirefighterMonitoringActive checks if monitoring is active
+func (a *App) IsFirefighterMonitoringActive(sessionID string) (bool, error) {
+	session, err := a.agentManager.GetSession(sessionID)
+	if err != nil {
+		return false, err
+	}
+	return session.IsFirefighterMonitoringActive(), nil
+}
+
+// GetFirefighterMonitorStatus returns monitoring status
+func (a *App) GetFirefighterMonitorStatus(sessionID string) (map[string]interface{}, error) {
+	session, err := a.agentManager.GetSession(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	return session.GetFirefighterMonitorStatus(), nil
+}
+
+// =============================================================================
+// Google Cloud OAuth Authentication Methods
+// =============================================================================
+
+// IsGCloudInstalled checks if gcloud CLI is installed
+func (a *App) IsGCloudInstalled() bool {
+	gcloud := auth.NewGCloudAuth()
+	return gcloud.IsInstalled()
+}
+
+// IsGCloudAuthenticated checks if user is authenticated with gcloud
+func (a *App) IsGCloudAuthenticated() (bool, error) {
+	gcloud := auth.NewGCloudAuth()
+	return gcloud.IsAuthenticated()
+}
+
+// GetGCloudAuthInfo returns current authentication info
+func (a *App) GetGCloudAuthInfo() (map[string]interface{}, error) {
+	gcloud := auth.NewGCloudAuth()
+	return gcloud.GetAuthInfo()
+}
+
+// GCloudLogin triggers OAuth login flow
+func (a *App) GCloudLogin() error {
+	gcloud := auth.NewGCloudAuth()
+	return gcloud.Login()
+}
+
+// GCloudLoginApplicationDefault triggers application default OAuth login
+func (a *App) GCloudLoginApplicationDefault() error {
+	gcloud := auth.NewGCloudAuth()
+	return gcloud.LoginApplicationDefault()
+}
+
+// GCloudSetProject sets the active GCP project
+func (a *App) GCloudSetProject(projectID string) error {
+	gcloud := auth.NewGCloudAuth()
+	return gcloud.SetProject(projectID)
+}
+
+// GCloudGetAvailableProjects returns list of available GCP projects
+func (a *App) GCloudGetAvailableProjects() ([]string, error) {
+	gcloud := auth.NewGCloudAuth()
+	return gcloud.GetAvailableProjects()
+}
+
+// GCloudVerifyVertexAIAccess verifies access to Vertex AI
+func (a *App) GCloudVerifyVertexAIAccess(projectID, region string) error {
+	gcloud := auth.NewGCloudAuth()
+	return gcloud.VerifyVertexAIAccess(projectID, region)
+}
+
+// GCloudRevoke revokes authentication
+func (a *App) GCloudRevoke() error {
+	gcloud := auth.NewGCloudAuth()
+	return gcloud.Revoke()
+}
+
+// =============================================================================
+// Okta OAuth Methods
+// =============================================================================
+
+// OktaLogin initiates Okta OAuth flow
+func (a *App) OktaLogin(domain, clientID, clientSecret string) error {
+	okta := auth.NewOktaAuth(domain, clientID, clientSecret)
+	// Request scopes for Datadog and Bugsnag access
+	scopes := []string{"openid", "profile", "email", "offline_access"}
+	return okta.Login(scopes)
+}
+
+// IsOktaAuthenticated checks if Okta OAuth is valid
+func (a *App) IsOktaAuthenticated(domain, clientID, clientSecret string) bool {
+	okta := auth.NewOktaAuth(domain, clientID, clientSecret)
+	return okta.IsAuthenticated()
+}
+
+// GetOktaAccessToken returns current Okta access token
+func (a *App) GetOktaAccessToken(domain, clientID, clientSecret string) (string, error) {
+	okta := auth.NewOktaAuth(domain, clientID, clientSecret)
+	return okta.GetAccessToken()
+}
+
+// OktaRefreshToken refreshes the Okta access token
+func (a *App) OktaRefreshToken(domain, clientID, clientSecret string) error {
+	okta := auth.NewOktaAuth(domain, clientID, clientSecret)
+	return okta.RefreshToken()
+}
+
+// OktaRevoke revokes Okta authentication
+func (a *App) OktaRevoke(domain, clientID, clientSecret string) error {
+	okta := auth.NewOktaAuth(domain, clientID, clientSecret)
+	return okta.Revoke()
 }
 
 // =============================================================================

@@ -30,8 +30,36 @@ export function CreateAgentSession(arg1) {
   return window['go']['main']['App']['CreateAgentSession'](arg1);
 }
 
+export function CreateFirefighterSession(arg1, arg2) {
+  return window['go']['main']['App']['CreateFirefighterSession'](arg1, arg2);
+}
+
 export function DeleteAgentSession(arg1) {
   return window['go']['main']['App']['DeleteAgentSession'](arg1);
+}
+
+export function GCloudGetAvailableProjects() {
+  return window['go']['main']['App']['GCloudGetAvailableProjects']();
+}
+
+export function GCloudLogin() {
+  return window['go']['main']['App']['GCloudLogin']();
+}
+
+export function GCloudLoginApplicationDefault() {
+  return window['go']['main']['App']['GCloudLoginApplicationDefault']();
+}
+
+export function GCloudRevoke() {
+  return window['go']['main']['App']['GCloudRevoke']();
+}
+
+export function GCloudSetProject(arg1) {
+  return window['go']['main']['App']['GCloudSetProject'](arg1);
+}
+
+export function GCloudVerifyVertexAIAccess(arg1, arg2) {
+  return window['go']['main']['App']['GCloudVerifyVertexAIAccess'](arg1, arg2);
 }
 
 export function GetAgentMessages(arg1) {
@@ -60,6 +88,14 @@ export function GetAutoCleanupSessions() {
 
 export function GetClaudeCLIVersion() {
   return window['go']['main']['App']['GetClaudeCLIVersion']();
+}
+
+export function GetFirefighterMonitorStatus(arg1) {
+  return window['go']['main']['App']['GetFirefighterMonitorStatus'](arg1);
+}
+
+export function GetGCloudAuthInfo() {
+  return window['go']['main']['App']['GetGCloudAuthInfo']();
 }
 
 export function GetGitDiff(arg1, arg2) {
@@ -98,6 +134,10 @@ export function GetMaxTotalSessions() {
   return window['go']['main']['App']['GetMaxTotalSessions']();
 }
 
+export function GetOktaAccessToken(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetOktaAccessToken'](arg1, arg2, arg3);
+}
+
 export function GetPreferences() {
   return window['go']['main']['App']['GetPreferences']();
 }
@@ -122,6 +162,22 @@ export function GetWorkspaceInfo(arg1) {
   return window['go']['main']['App']['GetWorkspaceInfo'](arg1);
 }
 
+export function IsFirefighterMonitoringActive(arg1) {
+  return window['go']['main']['App']['IsFirefighterMonitoringActive'](arg1);
+}
+
+export function IsGCloudAuthenticated() {
+  return window['go']['main']['App']['IsGCloudAuthenticated']();
+}
+
+export function IsGCloudInstalled() {
+  return window['go']['main']['App']['IsGCloudInstalled']();
+}
+
+export function IsOktaAuthenticated(arg1, arg2, arg3) {
+  return window['go']['main']['App']['IsOktaAuthenticated'](arg1, arg2, arg3);
+}
+
 export function IsOnboardingCompleted() {
   return window['go']['main']['App']['IsOnboardingCompleted']();
 }
@@ -132,6 +188,18 @@ export function ListAgentSessions() {
 
 export function ListProjects() {
   return window['go']['main']['App']['ListProjects']();
+}
+
+export function OktaLogin(arg1, arg2, arg3) {
+  return window['go']['main']['App']['OktaLogin'](arg1, arg2, arg3);
+}
+
+export function OktaRefreshToken(arg1, arg2, arg3) {
+  return window['go']['main']['App']['OktaRefreshToken'](arg1, arg2, arg3);
+}
+
+export function OktaRevoke(arg1, arg2, arg3) {
+  return window['go']['main']['App']['OktaRevoke'](arg1, arg2, arg3);
 }
 
 export function OpenProject(arg1) {
@@ -186,8 +254,16 @@ export function StartAgentSession(arg1) {
   return window['go']['main']['App']['StartAgentSession'](arg1);
 }
 
+export function StartFirefighterMonitoring(arg1) {
+  return window['go']['main']['App']['StartFirefighterMonitoring'](arg1);
+}
+
 export function StopAgentSession(arg1) {
   return window['go']['main']['App']['StopAgentSession'](arg1);
+}
+
+export function StopFirefighterMonitoring(arg1) {
+  return window['go']['main']['App']['StopFirefighterMonitoring'](arg1);
 }
 
 export function UpdateMCPServer(arg1) {

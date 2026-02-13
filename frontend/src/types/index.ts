@@ -60,6 +60,8 @@ export interface AgentSession {
   tasks: Task[];
   tags?: string[];
   isFavorite?: boolean;
+  mode?: string;
+  modeConfig?: Record<string, any>;
 }
 
 // =============================================================================
@@ -205,6 +207,17 @@ export interface UserPreferences {
   autoCleanupSessions?: boolean;
   maxAgentsPerSession?: number;
   keepCompletedAgents?: boolean;
+
+  // Firefighter/Observability settings
+  datadogAPIKey?: string;
+  datadogAppKey?: string;
+  datadogSite?: string;
+  bugsnagAPIKey?: string;
+
+  // Okta OAuth settings
+  oktaDomain?: string;
+  oktaClientID?: string;
+  oktaClientSecret?: string;
 }
 
 export interface ProjectPreferences {

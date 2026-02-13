@@ -1,7 +1,10 @@
-import { useState } from 'react';
-import { X, Moon, Sun, Bell, BellOff, Shield, Zap, Bot, Server, Key, Eye, EyeOff, Database, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Moon, Sun, Bell, BellOff, Shield, Zap, Bot, Server, Key, Eye, EyeOff, Database, Trash2, Plus, Flame } from 'lucide-react';
 import type { UserPreferences, ApprovalMode, Theme, MCPServer } from '../../types';
-import { CleanupOldSessions, GetSessionStats } from '../../../wailsjs/go/main/App';
+import { CleanupOldSessions, GetSessionStats, GetMCPServers, GetMCPPresets, AddMCPServer, RemoveMCPServer, UpdateMCPServer } from '../../../wailsjs/go/main/App';
+import { MCPServerDialog } from './MCPServerDialog';
+import { GCloudAuthSection } from './GCloudAuthSection';
+import { FirefighterSettings } from './FirefighterSettings';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -10,7 +13,7 @@ interface SettingsModalProps {
   onSave: (preferences: UserPreferences) => void;
 }
 
-type SettingsTab = 'general' | 'approval' | 'memory' | 'mcp' | 'about';
+type SettingsTab = 'general' | 'approval' | 'memory' | 'mcp' | 'firefighter' | 'about';
 
 export function SettingsModal({ isOpen, onClose, preferences, onSave }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
@@ -28,6 +31,7 @@ export function SettingsModal({ isOpen, onClose, preferences, onSave }: Settings
     { id: 'approval', label: 'Approval', icon: <Shield className="w-4 h-4" /> },
     { id: 'memory', label: 'Memory', icon: <Database className="w-4 h-4" /> },
     { id: 'mcp', label: 'MCP Servers', icon: <Server className="w-4 h-4" /> },
+    { id: 'firefighter', label: 'Firefighter', icon: <Flame className="w-4 h-4" /> },
     { id: 'about', label: 'About', icon: <Bot className="w-4 h-4" /> },
   ];
 
@@ -93,6 +97,22 @@ export function SettingsModal({ isOpen, onClose, preferences, onSave }: Settings
                 servers={localPrefs.mcpServers}
                 onChange={(servers) =>
                   setLocalPrefs({ ...localPrefs, mcpServers: servers })
+                }
+              />
+            )}
+            {activeTab === 'firefighter' && (
+              <FirefighterSettings
+                oktaDomain={localPrefs.oktaDomain}
+                oktaClientID={localPrefs.oktaClientID}
+                oktaClientSecret={localPrefs.oktaClientSecret}
+                onOktaDomainChange={(domain) =>
+                  setLocalPrefs({ ...localPrefs, oktaDomain: domain })
+                }
+                onOktaClientIDChange={(clientID) =>
+                  setLocalPrefs({ ...localPrefs, oktaClientID: clientID })
+                }
+                onOktaClientSecretChange={(secret) =>
+                  setLocalPrefs({ ...localPrefs, oktaClientSecret: secret })
                 }
               />
             )}
@@ -193,34 +213,12 @@ function GeneralSettings({
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-sm font-medium text-slate-100 mb-2">GCP Project ID</h3>
-              <input
-                type="text"
-                value={preferences.gcpProjectId || ''}
-                onChange={(e) => onChange({ ...preferences, gcpProjectId: e.target.value })}
-                placeholder="my-project-id"
-                className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-slate-100 mb-2">GCP Region</h3>
-              <select
-                value={preferences.gcpRegion || 'us-east5'}
-                onChange={(e) => onChange({ ...preferences, gcpRegion: e.target.value })}
-                className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-blue-500"
-              >
-                <option value="us-east5">us-east5</option>
-                <option value="us-central1">us-central1</option>
-                <option value="europe-west1">europe-west1</option>
-                <option value="asia-southeast1">asia-southeast1</option>
-              </select>
-            </div>
-            <p className="text-xs text-slate-500">
-              Authenticate using: <code className="text-slate-400">gcloud auth application-default login</code>
-            </p>
-          </div>
+          <GCloudAuthSection
+            projectId={preferences.gcpProjectId}
+            region={preferences.gcpRegion}
+            onProjectChange={(projectId) => onChange({ ...preferences, gcpProjectId: projectId })}
+            onRegionChange={(region) => onChange({ ...preferences, gcpRegion: region })}
+          />
         )}
       </div>
 
@@ -601,6 +599,83 @@ function MCPSettings({
   servers: MCPServer[];
   onChange: (servers: MCPServer[]) => void;
 }) {
+  const [localServers, setLocalServers] = useState<MCPServer[]>([]);
+  const [presets, setPresets] = useState<MCPServer[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load servers from backend on mount
+  useEffect(() => {
+    loadServers();
+    loadPresets();
+  }, []);
+
+  const loadServers = async () => {
+    try {
+      setIsLoading(true);
+      const mcpServers = await GetMCPServers();
+      setLocalServers(mcpServers);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to load MCP servers:', err);
+      setError('Failed to load MCP servers');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadPresets = async () => {
+    try {
+      const mcpPresets = await GetMCPPresets();
+      // Filter out presets that are already added
+      setPresets(mcpPresets);
+    } catch (err) {
+      console.error('Failed to load MCP presets:', err);
+    }
+  };
+
+  const handleAddServer = async (server: MCPServer) => {
+    try {
+      await AddMCPServer(server);
+      await loadServers();
+      setDialogOpen(false);
+    } catch (err) {
+      console.error('Failed to add MCP server:', err);
+      setError('Failed to add server');
+    }
+  };
+
+  const handleRemoveServer = async (name: string) => {
+    if (!confirm(`Are you sure you want to remove the "${name}" server?`)) {
+      return;
+    }
+
+    try {
+      await RemoveMCPServer(name);
+      await loadServers();
+    } catch (err) {
+      console.error('Failed to remove MCP server:', err);
+      setError('Failed to remove server');
+    }
+  };
+
+  const handleToggleServer = async (server: MCPServer) => {
+    try {
+      const updated = { ...server, enabled: !server.enabled };
+      await UpdateMCPServer(updated);
+      await loadServers();
+    } catch (err) {
+      console.error('Failed to update MCP server:', err);
+      setError('Failed to update server');
+    }
+  };
+
+  // Filter presets to exclude already added servers
+  const availablePresets = presets.filter(
+    (preset) => !localServers.some((server) => server.name === preset.name)
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -609,48 +684,94 @@ function MCPSettings({
           Configure Model Context Protocol servers for extended capabilities
         </p>
 
-        {servers.length === 0 ? (
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+            {error}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+            <p className="text-sm text-slate-400">Loading servers...</p>
+          </div>
+        ) : localServers.length === 0 ? (
           <div className="text-center py-8 border border-dashed border-slate-700 rounded-lg">
             <Server className="w-8 h-8 text-slate-600 mx-auto mb-2" />
             <p className="text-sm text-slate-400">No MCP servers configured</p>
-            <button className="mt-3 text-sm text-blue-500 hover:underline">
+            <button
+              onClick={() => setDialogOpen(true)}
+              className="mt-3 flex items-center gap-1 mx-auto text-sm text-blue-500 hover:underline"
+            >
+              <Plus className="w-4 h-4" />
               Add Server
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {servers.map((server, index) => (
-              <div
-                key={server.name}
-                className="flex items-center justify-between p-4 rounded-lg border border-slate-700"
-              >
-                <div className="flex items-center gap-3">
-                  <Server className="w-5 h-5 text-slate-400" />
-                  <div>
-                    <p className="text-sm text-slate-100">{server.name}</p>
-                    <p className="text-xs text-slate-500">{server.command}</p>
+          <>
+            <div className="space-y-3 mb-4">
+              {localServers.map((server) => (
+                <div
+                  key={server.name}
+                  className="flex items-center justify-between p-4 rounded-lg border border-slate-700"
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <Server className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-slate-100">{server.name}</p>
+                        {server.enabled && (
+                          <span className="px-1.5 py-0.5 text-xs bg-green-500/20 text-green-400 rounded">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      {server.description && (
+                        <p className="text-xs text-slate-500 mt-0.5">{server.description}</p>
+                      )}
+                      <p className="text-xs text-slate-600 mt-1">{server.command} {server.args?.join(' ')}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <span className="text-xs text-slate-400">
+                        {server.enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={server.enabled}
+                        onChange={() => handleToggleServer(server)}
+                        className="w-4 h-4 rounded"
+                      />
+                    </label>
+                    <button
+                      onClick={() => handleRemoveServer(server.name)}
+                      className="p-1.5 hover:bg-slate-600 rounded transition-colors"
+                      aria-label="Remove server"
+                    >
+                      <Trash2 className="w-4 h-4 text-slate-400 hover:text-red-500" />
+                    </button>
                   </div>
                 </div>
-                <label className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">
-                    {server.enabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={server.enabled}
-                    onChange={(e) => {
-                      const newServers = [...servers];
-                      newServers[index] = { ...server, enabled: e.target.checked };
-                      onChange(newServers);
-                    }}
-                    className="w-4 h-4 rounded"
-                  />
-                </label>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setDialogOpen(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-500 hover:bg-blue-500/20 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add Server
+            </button>
+          </>
         )}
       </div>
+
+      <MCPServerDialog
+        isOpen={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onAdd={handleAddServer}
+        presets={availablePresets}
+      />
     </div>
   );
 }

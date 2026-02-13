@@ -62,6 +62,17 @@ type UserPreferences struct {
 	AutoCleanupSessions   bool `json:"autoCleanupSessions"`
 	MaxAgentsPerSession   int  `json:"maxAgentsPerSession"`
 	KeepCompletedAgents   bool `json:"keepCompletedAgents"`
+
+	// Firefighter/Observability settings
+	DatadogAPIKey string `json:"datadogAPIKey,omitempty"`
+	DatadogAppKey string `json:"datadogAppKey,omitempty"`
+	DatadogSite   string `json:"datadogSite,omitempty"`
+	BugsnagAPIKey string `json:"bugsnagAPIKey,omitempty"`
+
+	// Okta OAuth settings
+	OktaDomain       string `json:"oktaDomain,omitempty"`
+	OktaClientID     string `json:"oktaClientID,omitempty"`
+	OktaClientSecret string `json:"oktaClientSecret,omitempty"`
 }
 
 // ProjectPreferences stores project-specific overrides

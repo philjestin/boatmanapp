@@ -100,7 +100,60 @@ func (m *Manager) CreateSession(projectPath string) (*Session, error) {
 	sessionID := uuid.New().String()
 	session := NewSession(sessionID, projectPath)
 
-	// Set up event handlers to emit to frontend
+	// Set up event handlers
+	m.setupSessionHandlers(session, sessionID)
+
+	// Set trim settings from config
+	if m.configGetter != nil {
+		maxMessages := m.configGetter.GetMaxMessagesPerSession()
+		archive := m.configGetter.GetArchiveOldMessages()
+		session.SetTrimSettings(maxMessages, archive)
+
+		// Set agent cleanup settings
+		maxAgents := m.configGetter.GetMaxAgentsPerSession()
+		keepCompleted := m.configGetter.GetKeepCompletedAgents()
+		session.SetAgentCleanupSettings(maxAgents, keepCompleted)
+	}
+
+	m.sessions[sessionID] = session
+	return session, nil
+}
+
+// CreateFirefighterSession creates a new firefighter agent session
+func (m *Manager) CreateFirefighterSession(projectPath string, scope string) (*Session, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	sessionID := uuid.New().String()
+	session := NewSession(sessionID, projectPath)
+
+	session.Mode = "firefighter"
+	session.ModeConfig = map[string]interface{}{
+		"scope": scope,
+	}
+	session.Tags = append(session.Tags, "firefighter")
+
+	// Set up event handlers
+	m.setupSessionHandlers(session, sessionID)
+
+	// Set trim settings from config
+	if m.configGetter != nil {
+		maxMessages := m.configGetter.GetMaxMessagesPerSession()
+		archive := m.configGetter.GetArchiveOldMessages()
+		session.SetTrimSettings(maxMessages, archive)
+
+		// Set agent cleanup settings
+		maxAgents := m.configGetter.GetMaxAgentsPerSession()
+		keepCompleted := m.configGetter.GetKeepCompletedAgents()
+		session.SetAgentCleanupSettings(maxAgents, keepCompleted)
+	}
+
+	m.sessions[sessionID] = session
+	return session, nil
+}
+
+// setupSessionHandlers sets up event handlers for a session
+func (m *Manager) setupSessionHandlers(session *Session, sessionID string) {
 	session.SetMessageHandler(func(msg Message) {
 		if m.ctx != nil {
 			runtime.EventsEmit(m.ctx, "agent:message", map[string]interface{}{
@@ -127,21 +180,6 @@ func (m *Manager) CreateSession(projectPath string) (*Session, error) {
 			})
 		}
 	})
-
-	// Set trim settings from config
-	if m.configGetter != nil {
-		maxMessages := m.configGetter.GetMaxMessagesPerSession()
-		archive := m.configGetter.GetArchiveOldMessages()
-		session.SetTrimSettings(maxMessages, archive)
-
-		// Set agent cleanup settings
-		maxAgents := m.configGetter.GetMaxAgentsPerSession()
-		keepCompleted := m.configGetter.GetKeepCompletedAgents()
-		session.SetAgentCleanupSettings(maxAgents, keepCompleted)
-	}
-
-	m.sessions[sessionID] = session
-	return session, nil
 }
 
 // GetSession returns a session by ID

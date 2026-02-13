@@ -5,6 +5,7 @@ import type { AgentSession, Message, Task, SessionStatus } from '../types';
 // Import Wails bindings (will be generated)
 import {
   CreateAgentSession,
+  CreateFirefighterSession,
   StartAgentSession,
   StopAgentSession,
   DeleteAgentSession,
@@ -15,6 +16,9 @@ import {
   GetAgentMessagesPaginated,
   GetAgentTasks,
   ListAgentSessions,
+  StartFirefighterMonitoring,
+  StopFirefighterMonitoring,
+  IsFirefighterMonitoringActive,
 } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 
@@ -129,6 +133,40 @@ export function useAgent() {
       return session.id;
     } catch (err) {
       setError('Failed to create session');
+      return null;
+    } finally {
+      setLoading('sessions', false);
+    }
+  }, [addSession, setActiveSession, setLoading, setError]);
+
+  // Create a firefighter session
+  const createFirefighterSession = useCallback(async (projectPath: string, scope: string): Promise<string | null> => {
+    try {
+      setLoading('sessions', true);
+      const info = await CreateFirefighterSession(projectPath, scope);
+
+      const session: AgentSession = {
+        id: info.id,
+        projectPath: info.projectPath,
+        status: info.status as SessionStatus,
+        createdAt: info.createdAt,
+        messages: [],
+        tasks: [],
+        tags: info.tags || [],
+        isFavorite: info.isFavorite || false,
+        mode: 'firefighter',
+        modeConfig: { scope },
+      };
+
+      addSession(session);
+      setActiveSession(session.id);
+
+      // Start the session
+      await StartAgentSession(session.id);
+
+      return session.id;
+    } catch (err) {
+      setError('Failed to create firefighter session: ' + err);
       return null;
     } finally {
       setLoading('sessions', false);
@@ -254,12 +292,37 @@ export function useAgent() {
   // Get active session
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
 
+  // Toggle firefighter monitoring
+  const toggleFirefighterMonitoring = useCallback(async (sessionId: string, active: boolean) => {
+    try {
+      if (active) {
+        await StartFirefighterMonitoring(sessionId);
+      } else {
+        await StopFirefighterMonitoring(sessionId);
+      }
+    } catch (err) {
+      console.error('Failed to toggle firefighter monitoring:', err);
+      setError('Failed to toggle monitoring');
+    }
+  }, [setError]);
+
+  // Check if monitoring is active
+  const isMonitoringActive = useCallback(async (sessionId: string): Promise<boolean> => {
+    try {
+      return await IsFirefighterMonitoringActive(sessionId);
+    } catch (err) {
+      console.error('Failed to check monitoring status:', err);
+      return false;
+    }
+  }, []);
+
   return {
     sessions,
     activeSession,
     activeSessionId,
     messagePagination,
     createSession,
+    createFirefighterSession,
     startSession,
     stopSession,
     deleteSession,
@@ -268,5 +331,7 @@ export function useAgent() {
     approveAction,
     rejectAction,
     loadMessagesPaginated,
+    toggleFirefighterMonitoring,
+    isMonitoringActive,
   };
 }

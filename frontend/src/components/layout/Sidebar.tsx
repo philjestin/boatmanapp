@@ -14,6 +14,7 @@ import {
   Tag,
 } from 'lucide-react';
 import type { Project, AgentSession, SessionStatus } from '../../types';
+import { FirefighterBadge } from '../firefighter/FirefighterBadge';
 
 interface SidebarProps {
   projects: Project[];
@@ -184,10 +185,15 @@ export function Sidebar({
                           </button>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                        <Clock className="w-3 h-3" />
-                        {new Date(session.createdAt).toLocaleTimeString()}
-                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-xs text-slate-500 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {new Date(session.createdAt).toLocaleTimeString()}
+                        </p>
+                        {session.mode === 'firefighter' && (
+                          <FirefighterBadge showLabel={false} className="flex-shrink-0" />
+                        )}
+                      </div>
                       {session.tags && session.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {session.tags.map((tag) => (
