@@ -170,6 +170,7 @@ export namespace agent {
 	    subject: string;
 	    description: string;
 	    status: string;
+	    metadata?: Record<string, any>;
 	
 	    static createFrom(source: any = {}) {
 	        return new Task(source);
@@ -181,6 +182,7 @@ export namespace agent {
 	        this.subject = source["subject"];
 	        this.description = source["description"];
 	        this.status = source["status"];
+	        this.metadata = source["metadata"];
 	    }
 	}
 	

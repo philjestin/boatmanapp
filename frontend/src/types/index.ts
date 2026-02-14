@@ -49,6 +49,7 @@ export interface Task {
   subject: string;
   description: string;
   status: 'pending' | 'in_progress' | 'completed';
+  metadata?: Record<string, any>;
 }
 
 export interface AgentSession {

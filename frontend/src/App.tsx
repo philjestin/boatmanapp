@@ -4,6 +4,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { MainPanel } from './components/layout/MainPanel';
 import { ChatView } from './components/chat/ChatView';
 import { TaskList } from './components/tasks/TaskList';
+import { TaskDetailModal } from './components/tasks/TaskDetailModal';
 import { DiffView } from './components/diff/DiffView';
 import { ApprovalBar } from './components/approval/ApprovalBar';
 import { SettingsModal } from './components/settings/SettingsModal';
@@ -20,6 +21,7 @@ import { useDiff } from './hooks/useDiff';
 import { useStore } from './store';
 import { ListTodo, MessageSquare, FileCode } from 'lucide-react';
 import { ListAgentSessions, SetSessionFavorite, AddSessionTag, RemoveSessionTag } from '../wailsjs/go/main/App';
+import type { Task } from './types';
 
 type TabView = 'chat' | 'tasks' | 'diff';
 
@@ -28,6 +30,7 @@ function App() {
   const [firefighterDialogOpen, setFirefighterDialogOpen] = useState(false);
   const [boatmanModeDialogOpen, setBoatmanModeDialogOpen] = useState(false);
   const [monitoringActive, setMonitoringActive] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const {
     sidebarOpen,
@@ -338,6 +341,14 @@ function App() {
         projectPath={activeProject?.path || ''}
       />
 
+      {/* Task Detail Modal */}
+      {selectedTask && (
+        <TaskDetailModal
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+        />
+      )}
+
       {/* Main Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
@@ -432,7 +443,10 @@ function App() {
                 )}
                 {activeTab === 'tasks' && (
                   <div className="p-4 overflow-y-auto h-full">
-                    <TaskList tasks={activeSession.tasks} />
+                    <TaskList
+                      tasks={activeSession.tasks}
+                      onTaskClick={(task) => setSelectedTask(task)}
+                    />
                   </div>
                 )}
                 {activeTab === 'diff' && (

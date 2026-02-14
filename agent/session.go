@@ -72,10 +72,11 @@ type CostInfo struct {
 
 // Task represents a task being tracked by the agent
 type Task struct {
-	ID          string `json:"id"`
-	Subject     string `json:"subject"`
-	Description string `json:"description"`
-	Status      string `json:"status"` // "pending", "in_progress", "completed"
+	ID          string                 `json:"id"`
+	Subject     string                 `json:"subject"`
+	Description string                 `json:"description"`
+	Status      string                 `json:"status"` // "pending", "in_progress", "completed"
+	Metadata    map[string]interface{} `json:"metadata,omitempty"` // Phase-specific data (diffs, feedback, etc.)
 }
 
 // Session represents an individual agent session
@@ -209,6 +210,12 @@ func (s *Session) SendMessage(content string, authConfig AuthConfig) error {
 	if s.Status == SessionStatusStopped || s.Status == SessionStatusError {
 		s.mu.Unlock()
 		return fmt.Errorf("session not available")
+	}
+
+	// Boatmanmode sessions should not use SendMessage - they use StreamExecution instead
+	if s.Mode == "boatmanmode" {
+		s.mu.Unlock()
+		return fmt.Errorf("boatmanmode sessions do not support SendMessage - use StreamBoatmanModeExecution")
 	}
 
 	// Check if context is initialized
@@ -680,7 +687,8 @@ func (s *Session) AddOrUpdateTask(id, subject, description, status string) {
 	}
 
 	if taskIndex >= 0 {
-		// Update existing task
+		// Update existing task, preserve metadata
+		task.Metadata = s.Tasks[taskIndex].Metadata
 		s.Tasks[taskIndex] = task
 	} else {
 		// Add new task
@@ -690,6 +698,30 @@ func (s *Session) AddOrUpdateTask(id, subject, description, status string) {
 	// Notify task handler
 	if s.onTask != nil {
 		s.onTask(task)
+	}
+}
+
+// UpdateTaskMetadata updates metadata for a specific task
+func (s *Session) UpdateTaskMetadata(id string, metadata map[string]interface{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for i, t := range s.Tasks {
+		if t.ID == id {
+			if s.Tasks[i].Metadata == nil {
+				s.Tasks[i].Metadata = make(map[string]interface{})
+			}
+			// Merge new metadata into existing
+			for k, v := range metadata {
+				s.Tasks[i].Metadata[k] = v
+			}
+
+			// Notify task handler
+			if s.onTask != nil {
+				s.onTask(s.Tasks[i])
+			}
+			return
+		}
 	}
 }
 

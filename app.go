@@ -773,9 +773,8 @@ func (a *App) ExecuteLinearTicketWithBoatmanMode(linearAPIKey, ticketID, project
 		return fmt.Errorf("failed to create boatmanmode integration: %w", err)
 	}
 
-	// Execute the ticket
-	ctx := context.Background()
-	_, err = bmIntegration.ExecuteTicket(ctx, ticketID)
+	// Execute the ticket (use app context for Wails events)
+	_, err = bmIntegration.ExecuteTicket(a.ctx, ticketID)
 	if err != nil {
 		return fmt.Errorf("failed to execute ticket: %w", err)
 	}
@@ -785,6 +784,7 @@ func (a *App) ExecuteLinearTicketWithBoatmanMode(linearAPIKey, ticketID, project
 
 // StreamBoatmanModeExecution runs boatmanmode workflow with streaming output
 // mode can be "ticket" or "prompt"
+// This function returns immediately and runs the execution in the background
 func (a *App) StreamBoatmanModeExecution(sessionID, input, mode, linearAPIKey, projectPath string) error {
 	// Get auth config using the same mechanism as regular sessions
 	prefs := a.config.GetPreferences()
@@ -797,27 +797,79 @@ func (a *App) StreamBoatmanModeExecution(sessionID, input, mode, linearAPIKey, p
 		return fmt.Errorf("failed to create boatmanmode integration: %w", err)
 	}
 
-	// Create output channel
-	outputChan := make(chan string, 100)
+	// Emit started event
+	runtime.EventsEmit(a.ctx, "boatmanmode:started", map[string]interface{}{
+		"sessionId": sessionID,
+	})
 
-	// Stream output to frontend via events
+	// Run execution in background to avoid blocking the frontend
 	go func() {
-		for msg := range outputChan {
-			runtime.EventsEmit(a.ctx, "boatmanmode:output", map[string]interface{}{
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("[boatmanmode] Recovered from panic in execution: %v\n", r)
+				// Try to emit error event to frontend (with panic recovery)
+				func() {
+					defer func() {
+						if r2 := recover(); r2 != nil {
+							fmt.Printf("[boatmanmode] Failed to emit panic error: %v\n", r2)
+						}
+					}()
+					runtime.EventsEmit(a.ctx, "boatmanmode:error", map[string]interface{}{
+						"sessionId": sessionID,
+						"error":     fmt.Sprintf("Execution panic: %v", r),
+					})
+				}()
+			}
+		}()
+
+		// Create output channel
+		outputChan := make(chan string, 100)
+
+		// Stream output to frontend via events
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("[boatmanmode] Recovered from panic in output emitter: %v\n", r)
+				}
+			}()
+
+			for msg := range outputChan {
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							fmt.Printf("[boatmanmode] Failed to emit output: %v\n", r)
+						}
+					}()
+					runtime.EventsEmit(a.ctx, "boatmanmode:output", map[string]interface{}{
+						"sessionId": sessionID,
+						"input":     input,
+						"mode":      mode,
+						"message":   msg,
+					})
+				}()
+			}
+		}()
+
+		// Execute with streaming (use app context for Wails events)
+		_, err := bmIntegration.StreamExecution(a.ctx, sessionID, input, mode, outputChan)
+		close(outputChan)
+
+		if err != nil {
+			fmt.Printf("[boatmanmode] Execution error: %v\n", err)
+			// Emit error event to frontend
+			runtime.EventsEmit(a.ctx, "boatmanmode:error", map[string]interface{}{
 				"sessionId": sessionID,
-				"input":     input,
-				"mode":      mode,
-				"message":   msg,
+				"error":     err.Error(),
+			})
+		} else {
+			// Emit completion event to frontend
+			runtime.EventsEmit(a.ctx, "boatmanmode:complete", map[string]interface{}{
+				"sessionId": sessionID,
 			})
 		}
 	}()
 
-	// Execute with streaming
-	ctx := context.Background()
-	_, err = bmIntegration.StreamExecution(ctx, sessionID, input, mode, outputChan)
-	close(outputChan)
-
-	return err
+	return nil
 }
 
 // HandleBoatmanModeEvent processes boatmanmode events and updates session state
@@ -836,7 +888,7 @@ func (a *App) HandleBoatmanModeEvent(sessionID string, eventType string, eventDa
 		session.AddOrUpdateTask(id, name, description, "in_progress")
 
 	case "agent_completed":
-		// Update task status
+		// Update task status and capture metadata
 		id, _ := eventData["id"].(string)
 		name, _ := eventData["name"].(string)
 		status, _ := eventData["status"].(string)
@@ -846,6 +898,40 @@ func (a *App) HandleBoatmanModeEvent(sessionID string, eventType string, eventDa
 			status = "failed"
 		}
 		session.AddOrUpdateTask(id, name, "", status)
+
+		// Store phase-specific metadata (diffs, feedback, etc.)
+		metadata := make(map[string]interface{})
+		if data, ok := eventData["data"].(map[string]interface{}); ok {
+			// Capture diff if present
+			if diff, ok := data["diff"].(string); ok {
+				metadata["diff"] = diff
+			}
+			// Capture feedback if present
+			if feedback, ok := data["feedback"].(string); ok {
+				metadata["feedback"] = feedback
+			}
+			// Capture review issues if present
+			if issues, ok := data["issues"].([]interface{}); ok {
+				metadata["issues"] = issues
+			}
+			// Capture plan if present
+			if plan, ok := data["plan"].(string); ok {
+				metadata["plan"] = plan
+			}
+			// Capture refactor diff if present
+			if refactorDiff, ok := data["refactor_diff"].(string); ok {
+				metadata["refactor_diff"] = refactorDiff
+			}
+			// Store all other data fields
+			for k, v := range data {
+				if k != "diff" && k != "feedback" && k != "issues" && k != "plan" && k != "refactor_diff" {
+					metadata[k] = v
+				}
+			}
+		}
+		if len(metadata) > 0 {
+			session.UpdateTaskMetadata(id, metadata)
+		}
 
 	case "task_created":
 		// Add task from boatmanmode's task system
@@ -878,9 +964,8 @@ func (a *App) FetchLinearTicketsForBoatmanMode(linearAPIKey, projectPath string)
 		return nil, fmt.Errorf("failed to create boatmanmode integration: %w", err)
 	}
 
-	// Fetch tickets with firefighter labels
-	ctx := context.Background()
-	tickets, err := bmIntegration.FetchTickets(ctx, map[string]string{
+	// Fetch tickets with firefighter labels (use app context for Wails events)
+	tickets, err := bmIntegration.FetchTickets(a.ctx, map[string]string{
 		"labels": "firefighter,triage,boatmanmode",
 	})
 	if err != nil {

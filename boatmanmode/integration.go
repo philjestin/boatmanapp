@@ -27,8 +27,16 @@ func NewIntegration(linearAPIKey, claudeAPIKey, repoPath string) (*Integration, 
 	boatmanmodePath, err := exec.LookPath("boatman")
 	if err != nil {
 		// Try default location
-		homeDir := "/Users/pmiddleton" // TODO: Get from env
+		homeDir := os.Getenv("HOME")
+		if homeDir == "" {
+			homeDir = "/Users/pmiddleton"
+		}
 		defaultPath := filepath.Join(homeDir, "workspace/handshake/boatmanmode/boatman")
+
+		// Check if the binary exists at default location
+		if _, err := os.Stat(defaultPath); os.IsNotExist(err) {
+			return nil, fmt.Errorf("boatman binary not found in PATH or at %s. Please build boatmanmode: cd ~/workspace/handshake/boatmanmode && go build -o boatman ./cmd/boatmanmode", defaultPath)
+		}
 		boatmanmodePath = defaultPath
 	}
 
@@ -45,8 +53,8 @@ func (i *Integration) ExecuteTicket(ctx context.Context, ticketID string) (map[s
 	cmd := exec.CommandContext(ctx, i.boatmanmodePath,
 		"execute",
 		"--ticket", ticketID,
-		"--repo", i.repoPath,
 	)
+	cmd.Dir = i.repoPath
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -71,8 +79,8 @@ func (i *Integration) ExecutePrompt(ctx context.Context, prompt string) (map[str
 	cmd := exec.CommandContext(ctx, i.boatmanmodePath,
 		"work",
 		"--prompt", prompt,
-		"--repo", i.repoPath,
 	)
+	cmd.Dir = i.repoPath
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -112,16 +120,15 @@ func (i *Integration) StreamExecution(ctx context.Context, sessionID string, inp
 		cmd = exec.CommandContext(ctx, i.boatmanmodePath,
 			"execute",
 			"--ticket", input,
-			"--repo", i.repoPath,
 		)
 	} else {
 		// prompt mode
 		cmd = exec.CommandContext(ctx, i.boatmanmodePath,
 			"work",
 			"--prompt", input,
-			"--repo", i.repoPath,
 		)
 	}
+	cmd.Dir = i.repoPath
 
 	// Set environment variables for authentication
 	// Start with parent environment so PATH, HOME, etc. are available
@@ -138,17 +145,26 @@ func (i *Integration) StreamExecution(ctx context.Context, sessionID string, inp
 		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
 
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
-	}
+	// Capture stderr to a buffer so we can include it in error messages
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+
+	fmt.Printf("[boatmanmode] Starting command: %s %v in directory: %s\n", i.boatmanmodePath, cmd.Args[1:], i.repoPath)
 
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start boatmanmode: %w", err)
+		return nil, fmt.Errorf("failed to start boatmanmode at %s: %w", i.boatmanmodePath, err)
 	}
+
+	fmt.Printf("[boatmanmode] Command started successfully, PID: %d\n", cmd.Process.Pid)
 
 	// Stream stdout and parse JSON events
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("[boatmanmode] Recovered from panic in stdout reader: %v\n", r)
+			}
+		}()
+
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -156,11 +172,18 @@ func (i *Integration) StreamExecution(ctx context.Context, sessionID string, inp
 			// Try to parse as structured event
 			var event BoatmanEvent
 			if err := json.Unmarshal([]byte(line), &event); err == nil && event.Type != "" {
-				// Emit structured event via Wails runtime
-				runtime.EventsEmit(ctx, "boatmanmode:event", map[string]interface{}{
-					"sessionId": sessionID,
-					"event":     event,
-				})
+				// Emit structured event via Wails runtime (with panic recovery)
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							fmt.Printf("[boatmanmode] Failed to emit event: %v\n", r)
+						}
+					}()
+					runtime.EventsEmit(ctx, "boatmanmode:event", map[string]interface{}{
+						"sessionId": sessionID,
+						"event":     event,
+					})
+				}()
 
 				// Also send formatted output to channel
 				switch event.Type {
@@ -182,19 +205,19 @@ func (i *Integration) StreamExecution(ctx context.Context, sessionID string, inp
 				outputChan <- line + "\n"
 			}
 		}
-	}()
 
-	// Stream stderr
-	go func() {
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			outputChan <- "ERR: " + scanner.Text() + "\n"
+		if err := scanner.Err(); err != nil {
+			fmt.Printf("[boatmanmode] Scanner error: %v\n", err)
 		}
 	}()
 
 	// Wait for completion
 	if err := cmd.Wait(); err != nil {
-		return nil, fmt.Errorf("boatmanmode execution failed: %w", err)
+		stderr := stderrBuf.String()
+		if stderr != "" {
+			return nil, fmt.Errorf("boatmanmode execution failed: %w\nStderr: %s", err, stderr)
+		}
+		return nil, fmt.Errorf("boatmanmode execution failed: %w\nCommand: %s %v", err, i.boatmanmodePath, cmd.Args[1:])
 	}
 
 	return map[string]interface{}{
@@ -204,7 +227,7 @@ func (i *Integration) StreamExecution(ctx context.Context, sessionID string, inp
 
 // FetchTickets retrieves tickets from Linear (via boatmanmode CLI)
 func (i *Integration) FetchTickets(ctx context.Context, filters map[string]string) ([]map[string]interface{}, error) {
-	args := []string{"list-tickets", "--repo", i.repoPath}
+	args := []string{"list-tickets"}
 
 	// Add filters as flags
 	if labels, ok := filters["labels"]; ok {
@@ -212,6 +235,7 @@ func (i *Integration) FetchTickets(ctx context.Context, filters map[string]strin
 	}
 
 	cmd := exec.CommandContext(ctx, i.boatmanmodePath, args...)
+	cmd.Dir = i.repoPath
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch tickets: %w\nOutput: %s", err, string(output))
