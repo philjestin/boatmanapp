@@ -234,6 +234,7 @@ export namespace config {
 	    oktaDomain?: string;
 	    oktaClientID?: string;
 	    oktaClientSecret?: string;
+	    linearAPIKey?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new UserPreferences(source);
@@ -265,6 +266,7 @@ export namespace config {
 	        this.oktaDomain = source["oktaDomain"];
 	        this.oktaClientID = source["oktaClientID"];
 	        this.oktaClientSecret = source["oktaClientSecret"];
+	        this.linearAPIKey = source["linearAPIKey"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

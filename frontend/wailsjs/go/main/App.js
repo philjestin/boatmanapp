@@ -30,12 +30,24 @@ export function CreateAgentSession(arg1) {
   return window['go']['main']['App']['CreateAgentSession'](arg1);
 }
 
+export function CreateBoatmanModeSession(arg1, arg2, arg3) {
+  return window['go']['main']['App']['CreateBoatmanModeSession'](arg1, arg2, arg3);
+}
+
 export function CreateFirefighterSession(arg1, arg2) {
   return window['go']['main']['App']['CreateFirefighterSession'](arg1, arg2);
 }
 
 export function DeleteAgentSession(arg1) {
   return window['go']['main']['App']['DeleteAgentSession'](arg1);
+}
+
+export function ExecuteLinearTicketWithBoatmanMode(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ExecuteLinearTicketWithBoatmanMode'](arg1, arg2, arg3);
+}
+
+export function FetchLinearTicketsForBoatmanMode(arg1, arg2) {
+  return window['go']['main']['App']['FetchLinearTicketsForBoatmanMode'](arg1, arg2);
 }
 
 export function GCloudGetAvailableProjects() {
@@ -162,6 +174,10 @@ export function GetWorkspaceInfo(arg1) {
   return window['go']['main']['App']['GetWorkspaceInfo'](arg1);
 }
 
+export function HandleBoatmanModeEvent(arg1, arg2, arg3) {
+  return window['go']['main']['App']['HandleBoatmanModeEvent'](arg1, arg2, arg3);
+}
+
 export function InvestigateLinearTicket(arg1, arg2) {
   return window['go']['main']['App']['InvestigateLinearTicket'](arg1, arg2);
 }
@@ -272,6 +288,10 @@ export function StopAgentSession(arg1) {
 
 export function StopFirefighterMonitoring(arg1) {
   return window['go']['main']['App']['StopFirefighterMonitoring'](arg1);
+}
+
+export function StreamBoatmanModeExecution(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['StreamBoatmanModeExecution'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function UpdateMCPServer(arg1) {

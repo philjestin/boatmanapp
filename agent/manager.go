@@ -152,6 +152,41 @@ func (m *Manager) CreateFirefighterSession(projectPath string, scope string) (*S
 	return session, nil
 }
 
+// CreateBoatmanModeSession creates a new boatmanmode agent session
+// mode can be "ticket" or "prompt"
+func (m *Manager) CreateBoatmanModeSession(projectPath string, input string, mode string) (*Session, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	sessionID := uuid.New().String()
+	session := NewSession(sessionID, projectPath)
+
+	session.Mode = "boatmanmode"
+	session.ModeConfig = map[string]interface{}{
+		"input": input,
+		"mode":  mode,
+	}
+	session.Tags = append(session.Tags, "boatmanmode")
+
+	// Set up event handlers
+	m.setupSessionHandlers(session, sessionID)
+
+	// Set trim settings from config
+	if m.configGetter != nil {
+		maxMessages := m.configGetter.GetMaxMessagesPerSession()
+		archive := m.configGetter.GetArchiveOldMessages()
+		session.SetTrimSettings(maxMessages, archive)
+
+		// Set agent cleanup settings
+		maxAgents := m.configGetter.GetMaxAgentsPerSession()
+		keepCompleted := m.configGetter.GetKeepCompletedAgents()
+		session.SetAgentCleanupSettings(maxAgents, keepCompleted)
+	}
+
+	m.sessions[sessionID] = session
+	return session, nil
+}
+
 // setupSessionHandlers sets up event handlers for a session
 func (m *Manager) setupSessionHandlers(session *Session, sessionID string) {
 	session.SetMessageHandler(func(msg Message) {

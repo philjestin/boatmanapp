@@ -5,18 +5,22 @@ interface FirefighterSettingsProps {
   oktaDomain?: string;
   oktaClientID?: string;
   oktaClientSecret?: string;
+  linearAPIKey?: string;
   onOktaDomainChange: (domain: string) => void;
   onOktaClientIDChange: (clientID: string) => void;
   onOktaClientSecretChange: (secret: string) => void;
+  onLinearAPIKeyChange: (key: string) => void;
 }
 
 export function FirefighterSettings({
   oktaDomain,
   oktaClientID,
   oktaClientSecret,
+  linearAPIKey,
   onOktaDomainChange,
   onOktaClientIDChange,
   onOktaClientSecretChange,
+  onLinearAPIKeyChange,
 }: FirefighterSettingsProps) {
   const isConfigured = oktaDomain && oktaClientID;
 
@@ -91,6 +95,24 @@ export function FirefighterSettings({
         onOktaClientIDChange={onOktaClientIDChange}
         onOktaClientSecretChange={onOktaClientSecretChange}
       />
+
+      {/* Linear API Key */}
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Linear API Key
+        </label>
+        <input
+          type="password"
+          value={linearAPIKey || ''}
+          onChange={(e) => onLinearAPIKeyChange(e.target.value)}
+          placeholder="lin_api_..."
+          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-md text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+        <p className="text-xs text-slate-400 mt-1">
+          Required for Boatman Mode ticket execution and Firefighter Mode Linear integration.
+          Get your API key from Linear Settings → API → Personal API keys
+        </p>
+      </div>
 
       {/* MCP Configuration Instructions */}
       <div className="p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg">

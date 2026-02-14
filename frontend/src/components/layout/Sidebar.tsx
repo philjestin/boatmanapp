@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { Project, AgentSession, SessionStatus } from '../../types';
 import { FirefighterBadge } from '../firefighter/FirefighterBadge';
+import { BoatmanModeBadge } from '../boatmanmode/BoatmanModeBadge';
 
 interface SidebarProps {
   projects: Project[];
@@ -192,6 +193,9 @@ export function Sidebar({
                         </p>
                         {session.mode === 'firefighter' && (
                           <FirefighterBadge showLabel={false} className="flex-shrink-0" />
+                        )}
+                        {session.mode === 'boatmanmode' && (
+                          <BoatmanModeBadge className="flex-shrink-0" />
                         )}
                       </div>
                       {session.tags && session.tags.length > 0 && (

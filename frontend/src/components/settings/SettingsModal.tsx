@@ -105,6 +105,7 @@ export function SettingsModal({ isOpen, onClose, preferences, onSave }: Settings
                 oktaDomain={localPrefs.oktaDomain}
                 oktaClientID={localPrefs.oktaClientID}
                 oktaClientSecret={localPrefs.oktaClientSecret}
+                linearAPIKey={localPrefs.linearAPIKey}
                 onOktaDomainChange={(domain) =>
                   setLocalPrefs({ ...localPrefs, oktaDomain: domain })
                 }
@@ -113,6 +114,9 @@ export function SettingsModal({ isOpen, onClose, preferences, onSave }: Settings
                 }
                 onOktaClientSecretChange={(secret) =>
                   setLocalPrefs({ ...localPrefs, oktaClientSecret: secret })
+                }
+                onLinearAPIKeyChange={(key) =>
+                  setLocalPrefs({ ...localPrefs, linearAPIKey: key })
                 }
               />
             )}

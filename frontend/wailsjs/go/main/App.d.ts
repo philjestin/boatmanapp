@@ -21,9 +21,15 @@ export function CompleteOnboarding():Promise<void>;
 
 export function CreateAgentSession(arg1:string):Promise<main.AgentSessionInfo>;
 
+export function CreateBoatmanModeSession(arg1:string,arg2:string,arg3:string):Promise<main.AgentSessionInfo>;
+
 export function CreateFirefighterSession(arg1:string,arg2:string):Promise<main.AgentSessionInfo>;
 
 export function DeleteAgentSession(arg1:string):Promise<void>;
+
+export function ExecuteLinearTicketWithBoatmanMode(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function FetchLinearTicketsForBoatmanMode(arg1:string,arg2:string):Promise<Array<Record<string, any>>>;
 
 export function GCloudGetAvailableProjects():Promise<Array<string>>;
 
@@ -87,6 +93,8 @@ export function GetSideBySideDiff(arg1:diff.FileDiff):Promise<Array<diff.SideByS
 
 export function GetWorkspaceInfo(arg1:string):Promise<project.WorkspaceInfo>;
 
+export function HandleBoatmanModeEvent(arg1:string,arg2:string,arg3:Record<string, any>):Promise<void>;
+
 export function InvestigateLinearTicket(arg1:string,arg2:string):Promise<void>;
 
 export function InvestigateSlackAlert(arg1:string,arg2:string,arg3:string):Promise<void>;
@@ -142,5 +150,7 @@ export function StartFirefighterMonitoring(arg1:string):Promise<void>;
 export function StopAgentSession(arg1:string):Promise<void>;
 
 export function StopFirefighterMonitoring(arg1:string):Promise<void>;
+
+export function StreamBoatmanModeExecution(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<void>;
 
 export function UpdateMCPServer(arg1:mcp.Server):Promise<void>;

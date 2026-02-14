@@ -1,11 +1,12 @@
 import { useEffect, useCallback } from 'react';
 import { useStore } from '../store';
-import type { AgentSession, Message, Task, SessionStatus } from '../types';
+import type { AgentSession, Message, Task, SessionStatus, BoatmanModeEventPayload } from '../types';
 
 // Import Wails bindings (will be generated)
 import {
   CreateAgentSession,
   CreateFirefighterSession,
+  CreateBoatmanModeSession,
   StartAgentSession,
   StopAgentSession,
   DeleteAgentSession,
@@ -19,6 +20,8 @@ import {
   StartFirefighterMonitoring,
   StopFirefighterMonitoring,
   IsFirefighterMonitoringActive,
+  HandleBoatmanModeEvent,
+  StreamBoatmanModeExecution,
 } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 
@@ -58,16 +61,28 @@ export function useAgent() {
       updateSessionStatus(data.sessionId, data.status);
     };
 
+    const boatmanModeEventHandler = async (data: BoatmanModeEventPayload) => {
+      console.log('[FRONTEND] Received boatmanmode event:', data);
+      try {
+        // Let backend handle the event and update tasks
+        await HandleBoatmanModeEvent(data.sessionId, data.event.type, data.event);
+      } catch (err) {
+        console.error('Failed to handle boatmanmode event:', err);
+      }
+    };
+
     console.log('[FRONTEND] Subscribing to agent events...');
     EventsOn('agent:message', messageHandler);
     EventsOn('agent:task', taskHandler);
     EventsOn('agent:status', statusHandler);
+    EventsOn('boatmanmode:event', boatmanModeEventHandler);
 
     return () => {
       console.log('[FRONTEND] Unsubscribing from agent events...');
       EventsOff('agent:message');
       EventsOff('agent:task');
       EventsOff('agent:status');
+      EventsOff('boatmanmode:event');
     };
   }, [addMessage, updateTask, updateSessionStatus]);
 
@@ -167,6 +182,44 @@ export function useAgent() {
       return session.id;
     } catch (err) {
       setError('Failed to create firefighter session: ' + err);
+      return null;
+    } finally {
+      setLoading('sessions', false);
+    }
+  }, [addSession, setActiveSession, setLoading, setError]);
+
+  // Create a boatmanmode session
+  // mode can be "ticket" or "prompt"
+  const createBoatmanModeSession = useCallback(async (projectPath: string, input: string, mode: string, linearAPIKey: string): Promise<string | null> => {
+    try {
+      setLoading('sessions', true);
+      const info = await CreateBoatmanModeSession(projectPath, input, mode);
+
+      const session: AgentSession = {
+        id: info.id,
+        projectPath: info.projectPath,
+        status: info.status as SessionStatus,
+        createdAt: info.createdAt,
+        messages: [],
+        tasks: [],
+        tags: info.tags || [],
+        isFavorite: info.isFavorite || false,
+        mode: 'boatmanmode',
+        modeConfig: { input, mode },
+      };
+
+      addSession(session);
+      setActiveSession(session.id);
+
+      // Start the session
+      await StartAgentSession(session.id);
+
+      // Start streaming execution
+      await StreamBoatmanModeExecution(session.id, input, mode, linearAPIKey, projectPath);
+
+      return session.id;
+    } catch (err) {
+      setError('Failed to create boatmanmode session: ' + err);
       return null;
     } finally {
       setLoading('sessions', false);
@@ -323,6 +376,7 @@ export function useAgent() {
     messagePagination,
     createSession,
     createFirefighterSession,
+    createBoatmanModeSession,
     startSession,
     stopSession,
     deleteSession,

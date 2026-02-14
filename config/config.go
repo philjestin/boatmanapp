@@ -73,6 +73,9 @@ type UserPreferences struct {
 	OktaDomain       string `json:"oktaDomain,omitempty"`
 	OktaClientID     string `json:"oktaClientID,omitempty"`
 	OktaClientSecret string `json:"oktaClientSecret,omitempty"`
+
+	// Linear settings
+	LinearAPIKey string `json:"linearAPIKey,omitempty"`
 }
 
 // ProjectPreferences stores project-specific overrides

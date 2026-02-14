@@ -218,6 +218,9 @@ export interface UserPreferences {
   oktaDomain?: string;
   oktaClientID?: string;
   oktaClientSecret?: string;
+
+  // Linear settings
+  linearAPIKey?: string;
 }
 
 export interface ProjectPreferences {
@@ -275,6 +278,31 @@ export interface AgentTaskEvent {
 export interface AgentStatusEvent {
   sessionId: string;
   status: SessionStatus;
+}
+
+export interface BoatmanModeEvent {
+  type: string;
+  id?: string;
+  name?: string;
+  description?: string;
+  status?: string;
+  message?: string;
+  data?: Record<string, any>;
+}
+
+export interface BoatmanModeEventPayload {
+  sessionId: string;
+  event: BoatmanModeEvent;
+}
+
+export interface LinearTicket {
+  id: string;
+  identifier: string;
+  title: string;
+  description?: string;
+  priority?: number;
+  state?: string;
+  labels?: string[];
 }
 
 // =============================================================================

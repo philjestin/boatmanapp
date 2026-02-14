@@ -1,4 +1,4 @@
-import { Menu, Settings, Plus, FolderOpen, Search, Flame } from 'lucide-react';
+import { Menu, Settings, Plus, FolderOpen, Search, Flame, PlayCircle } from 'lucide-react';
 import { useStore } from '../../store';
 
 interface HeaderProps {
@@ -7,9 +7,10 @@ interface HeaderProps {
   onOpenSettings: () => void;
   onOpenSearch: () => void;
   onStartFirefighter: () => void;
+  onStartBoatmanMode: () => void;
 }
 
-export function Header({ onNewSession, onOpenProject, onOpenSettings, onOpenSearch, onStartFirefighter }: HeaderProps) {
+export function Header({ onNewSession, onOpenProject, onOpenSettings, onOpenSearch, onStartFirefighter, onStartBoatmanMode }: HeaderProps) {
   const { toggleSidebar, sidebarOpen } = useStore();
 
   return (
@@ -47,6 +48,14 @@ export function Header({ onNewSession, onOpenProject, onOpenSettings, onOpenSear
         >
           <Flame className="w-4 h-4" />
           <span>Firefighter</span>
+        </button>
+        <button
+          onClick={onStartBoatmanMode}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-purple-500 text-white rounded-md hover:bg-purple-600 transition-colors no-drag"
+          title="Start Boatman Mode"
+        >
+          <PlayCircle className="w-4 h-4" />
+          <span>Boatman Mode</span>
         </button>
         <button
           onClick={onOpenSearch}

@@ -7,6 +7,7 @@ import (
 
 	"boatman/agent"
 	"boatman/auth"
+	bmintegration "boatman/boatmanmode"
 	"boatman/config"
 	"boatman/diff"
 	gitpkg "boatman/git"
@@ -138,6 +139,23 @@ func (a *App) CreateAgentSession(projectPath string) (*AgentSessionInfo, error) 
 // CreateFirefighterSession creates a new firefighter agent session
 func (a *App) CreateFirefighterSession(projectPath string, scope string) (*AgentSessionInfo, error) {
 	session, err := a.agentManager.CreateFirefighterSession(projectPath, scope)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AgentSessionInfo{
+		ID:          session.ID,
+		ProjectPath: session.ProjectPath,
+		Status:      session.Status,
+		CreatedAt:   session.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Tags:        session.Tags,
+	}, nil
+}
+
+// CreateBoatmanModeSession creates a new boatmanmode agent session
+// mode can be "ticket" or "prompt"
+func (a *App) CreateBoatmanModeSession(projectPath string, input string, mode string) (*AgentSessionInfo, error) {
+	session, err := a.agentManager.CreateBoatmanModeSession(projectPath, input, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -734,6 +752,143 @@ func (a *App) OktaRefreshToken(domain, clientID, clientSecret string) error {
 func (a *App) OktaRevoke(domain, clientID, clientSecret string) error {
 	okta := auth.NewOktaAuth(domain, clientID, clientSecret)
 	return okta.Revoke()
+}
+
+// =============================================================================
+// BoatmanMode Integration Methods
+// =============================================================================
+
+// ExecuteLinearTicketWithBoatmanMode runs the full boatmanmode workflow for a ticket
+func (a *App) ExecuteLinearTicketWithBoatmanMode(linearAPIKey, ticketID, projectPath string) error {
+	// Get Claude API key from config
+	prefs := a.config.GetPreferences()
+	claudeAPIKey := prefs.APIKey
+	if claudeAPIKey == "" {
+		return fmt.Errorf("Claude API key not configured")
+	}
+
+	// Create boatmanmode integration
+	bmIntegration, err := bmintegration.NewIntegration(linearAPIKey, claudeAPIKey, projectPath)
+	if err != nil {
+		return fmt.Errorf("failed to create boatmanmode integration: %w", err)
+	}
+
+	// Execute the ticket
+	ctx := context.Background()
+	_, err = bmIntegration.ExecuteTicket(ctx, ticketID)
+	if err != nil {
+		return fmt.Errorf("failed to execute ticket: %w", err)
+	}
+
+	return nil
+}
+
+// StreamBoatmanModeExecution runs boatmanmode workflow with streaming output
+// mode can be "ticket" or "prompt"
+func (a *App) StreamBoatmanModeExecution(sessionID, input, mode, linearAPIKey, projectPath string) error {
+	// Get auth config using the same mechanism as regular sessions
+	prefs := a.config.GetPreferences()
+	claudeAPIKey := prefs.APIKey
+	// Note: We don't error if Claude API key is missing - the boatman CLI will handle auth
+	// It can use ~/.claude/config.json or other configured auth methods
+
+	bmIntegration, err := bmintegration.NewIntegration(linearAPIKey, claudeAPIKey, projectPath)
+	if err != nil {
+		return fmt.Errorf("failed to create boatmanmode integration: %w", err)
+	}
+
+	// Create output channel
+	outputChan := make(chan string, 100)
+
+	// Stream output to frontend via events
+	go func() {
+		for msg := range outputChan {
+			runtime.EventsEmit(a.ctx, "boatmanmode:output", map[string]interface{}{
+				"sessionId": sessionID,
+				"input":     input,
+				"mode":      mode,
+				"message":   msg,
+			})
+		}
+	}()
+
+	// Execute with streaming
+	ctx := context.Background()
+	_, err = bmIntegration.StreamExecution(ctx, sessionID, input, mode, outputChan)
+	close(outputChan)
+
+	return err
+}
+
+// HandleBoatmanModeEvent processes boatmanmode events and updates session state
+func (a *App) HandleBoatmanModeEvent(sessionID string, eventType string, eventData map[string]interface{}) error {
+	session, err := a.agentManager.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+
+	switch eventType {
+	case "agent_started":
+		// Create task for the agent
+		id, _ := eventData["id"].(string)
+		name, _ := eventData["name"].(string)
+		description, _ := eventData["description"].(string)
+		session.AddOrUpdateTask(id, name, description, "in_progress")
+
+	case "agent_completed":
+		// Update task status
+		id, _ := eventData["id"].(string)
+		name, _ := eventData["name"].(string)
+		status, _ := eventData["status"].(string)
+		if status == "success" {
+			status = "completed"
+		} else if status == "failed" {
+			status = "failed"
+		}
+		session.AddOrUpdateTask(id, name, "", status)
+
+	case "task_created":
+		// Add task from boatmanmode's task system
+		id, _ := eventData["id"].(string)
+		subject, _ := eventData["name"].(string)
+		description, _ := eventData["description"].(string)
+		session.AddOrUpdateTask(id, subject, description, "pending")
+
+	case "task_updated":
+		// Update task status
+		id, _ := eventData["id"].(string)
+		name, _ := eventData["name"].(string)
+		status, _ := eventData["status"].(string)
+		session.AddOrUpdateTask(id, name, "", status)
+	}
+
+	return nil
+}
+
+// FetchLinearTicketsForBoatmanMode retrieves tickets from Linear
+func (a *App) FetchLinearTicketsForBoatmanMode(linearAPIKey, projectPath string) ([]map[string]interface{}, error) {
+	prefs := a.config.GetPreferences()
+	claudeAPIKey := prefs.APIKey
+	if claudeAPIKey == "" {
+		return nil, fmt.Errorf("Claude API key not configured")
+	}
+
+	bmIntegration, err := bmintegration.NewIntegration(linearAPIKey, claudeAPIKey, projectPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create boatmanmode integration: %w", err)
+	}
+
+	// Fetch tickets with firefighter labels
+	ctx := context.Background()
+	tickets, err := bmIntegration.FetchTickets(ctx, map[string]string{
+		"labels": "firefighter,triage,boatmanmode",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch tickets: %w", err)
+	}
+
+	// Tickets are already in the right format from boatmanmode CLI
+	return tickets, nil
 }
 
 // =============================================================================

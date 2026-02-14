@@ -11,6 +11,7 @@ import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { SearchModal } from './components/search/SearchModal';
 import { FirefighterDialog } from './components/firefighter/FirefighterDialog';
 import { FirefighterMonitor } from './components/firefighter/FirefighterMonitor';
+import { BoatmanModeDialog } from './components/boatmanmode/BoatmanModeDialog';
 import { useAgent } from './hooks/useAgent';
 import { useProject } from './hooks/useProject';
 import { usePreferences } from './hooks/usePreferences';
@@ -25,6 +26,7 @@ type TabView = 'chat' | 'tasks' | 'diff';
 function App() {
   const [activeTab, setActiveTab] = useState<TabView>('chat');
   const [firefighterDialogOpen, setFirefighterDialogOpen] = useState(false);
+  const [boatmanModeDialogOpen, setBoatmanModeDialogOpen] = useState(false);
   const [monitoringActive, setMonitoringActive] = useState(false);
 
   const {
@@ -41,6 +43,7 @@ function App() {
     messagePagination,
     createSession,
     createFirefighterSession,
+    createBoatmanModeSession,
     deleteSession,
     selectSession,
     sendMessage,
@@ -141,6 +144,22 @@ function App() {
         // Auto-start monitoring if enabled
         await toggleFirefighterMonitoring(sessionId, true);
       }
+    } else {
+      setError('Please open a project first');
+    }
+  };
+
+  // Handle boatmanmode session creation
+  const handleStartBoatmanMode = async (input: string, mode: 'ticket' | 'prompt') => {
+    if (activeProject) {
+      // Get Linear API key from preferences (only needed for ticket mode)
+      const linearAPIKey = preferences?.linearAPIKey || '';
+      if (mode === 'ticket' && !linearAPIKey) {
+        setError('Please configure Linear API key in settings');
+        return;
+      }
+      await createBoatmanModeSession(activeProject.path, input, mode, linearAPIKey);
+      setBoatmanModeDialogOpen(false);
     } else {
       setError('Please open a project first');
     }
@@ -300,6 +319,7 @@ function App() {
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenSearch={openSearch}
         onStartFirefighter={() => setFirefighterDialogOpen(true)}
+        onStartBoatmanMode={() => setBoatmanModeDialogOpen(true)}
       />
 
       {/* Firefighter Dialog */}
@@ -307,6 +327,14 @@ function App() {
         isOpen={firefighterDialogOpen}
         onClose={() => setFirefighterDialogOpen(false)}
         onStart={handleStartFirefighter}
+        projectPath={activeProject?.path || ''}
+      />
+
+      {/* Boatman Mode Dialog */}
+      <BoatmanModeDialog
+        isOpen={boatmanModeDialogOpen}
+        onClose={() => setBoatmanModeDialogOpen(false)}
+        onStart={handleStartBoatmanMode}
         projectPath={activeProject?.path || ''}
       />
 

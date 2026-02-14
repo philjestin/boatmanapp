@@ -90,7 +90,7 @@ type Session struct {
 	Model       string                 `json:"model"`
 	Tags        []string               `json:"tags,omitempty"`
 	IsFavorite  bool                   `json:"isFavorite,omitempty"`
-	Mode        string                 `json:"mode"` // "standard", "firefighter"
+	Mode        string                 `json:"mode"` // "standard", "firefighter", "boatmanmode"
 	ModeConfig  map[string]interface{} `json:"modeConfig,omitempty"`
 
 	mu             sync.RWMutex
@@ -649,6 +649,48 @@ func (s *Session) GetTasks() []Task {
 	tasks := make([]Task, len(s.Tasks))
 	copy(tasks, s.Tasks)
 	return tasks
+}
+
+// AddOrUpdateTask adds a new task or updates an existing one
+func (s *Session) AddOrUpdateTask(id, subject, description, status string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if id == "" {
+		id = fmt.Sprintf("task-%d", time.Now().UnixNano())
+	}
+	if status == "" {
+		status = "pending"
+	}
+
+	// Find existing task or create new one
+	taskIndex := -1
+	for i, t := range s.Tasks {
+		if t.ID == id {
+			taskIndex = i
+			break
+		}
+	}
+
+	task := Task{
+		ID:          id,
+		Subject:     subject,
+		Description: description,
+		Status:      status,
+	}
+
+	if taskIndex >= 0 {
+		// Update existing task
+		s.Tasks[taskIndex] = task
+	} else {
+		// Add new task
+		s.Tasks = append(s.Tasks, task)
+	}
+
+	// Notify task handler
+	if s.onTask != nil {
+		s.onTask(task)
+	}
 }
 
 func (s *Session) addAssistantMessage(content string) {
